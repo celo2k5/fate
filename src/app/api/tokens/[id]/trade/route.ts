@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/ratelimit";
 import { ok, fail, parseBig } from "@/lib/api";
 import { requireSession, verifyIntent } from "@/lib/auth";
 import { getProtocol } from "@/engine/keeper";
@@ -6,6 +7,7 @@ interface TradeIntent { kind: "trade"; address: string; issuedAt: number; tokenI
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    rateLimit("trade", req);
     const { id } = await ctx.params;
     const s = await requireSession();
     const { intent, signature } = verifyIntent<TradeIntent>(await req.json(), "trade", s.address);

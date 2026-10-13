@@ -18,10 +18,10 @@ export default async function Coins({ searchParams }: { searchParams: Promise<{ 
     <div className="mx-auto max-w-[1320px] px-5 sm:px-8 pt-28 pb-16">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <h1 className="display text-[40px] sm:text-[56px]">All <span className="display-light">coins</span></h1>
-        <form className="flex gap-2" action="/coins">
+        <form className="flex gap-2 w-full sm:w-auto" action="/coins">
           <input type="hidden" name="tab" value={tab} />
-          <input name="q" defaultValue={q ?? ""} placeholder="Search name, ticker or mint" className="field !w-72" aria-label="Search coins" />
-          <button className="btn">Search</button>
+          <input name="q" defaultValue={q ?? ""} placeholder="Search name, ticker or mint" className="field min-w-0 flex-1 sm:flex-none sm:!w-72" aria-label="Search coins" />
+          <button className="btn shrink-0">Search</button>
         </form>
       </div>
       <nav className="mt-8 card-sm px-4 py-3 flex flex-wrap gap-1" aria-label="Filters">

@@ -15,7 +15,7 @@ export default function Destinies() {
         {DESTINIES.map((d) => {
           const m = DESTINY_META[d];
           return (
-            <div key={d} data-destiny={d} className="card p-4">
+            <div key={d} data-destiny={d} className="card card-metal sweep p-4">
               <CharacterScene name={d.toLowerCase()} />
               <div className="card-sm mt-4 rounded-[12px] px-5 py-4">
                 <div className="flex items-center justify-between gap-3">

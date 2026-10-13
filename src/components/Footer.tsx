@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { Logo, Mark } from "./Logo";
+import { Logo } from "./Logo";
 
 export function Footer({ network }: { network: string }) {
   const path = usePathname();

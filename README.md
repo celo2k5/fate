@@ -94,27 +94,66 @@ Database models (spec §18): Token, Launch, DestinyConfig, DestinyState, FeeEven
 
 ## Status — read this
 
-**What is real and verified here**
-- The full product loop, server-side, against a persistent ledger, with all four destinies, graduation, realtime, wallet signatures, discovery, leaderboards, and the tests above.
+FATE runs in one of three modes, set by `FATE_CHAIN`:
 
-**What is simulated**
-- *simnet*: the ledger is SQLite in this process, not Solana. "SOL" and tokens are ledger balances. Signatures are wallet signatures over intents, not transaction signatures.
-- The Orbit price feed and swap venue (`oracle.ts`) are deterministic stand-ins for Pyth/Switchboard + Jupiter.
-- The AMM is the engine's own constant-product pool, standing in for Raydium CPMM / Meteora.
+| mode | ledger | money | what moves |
+|---|---|---|---|
+| `simnet` (default; the public demo) | SQLite in-process | none | everything is simulated: curve, AMM, oracle, Jupiter stand-ins |
+| `devnet` | SQLite mirror of chain events | devnet SOL | real pump.fun coins on Solana devnet; agents send real devnet transactions |
+| `mainnet` | same | real SOL | same as devnet, **behind a circuit breaker** (see Going on-chain) |
 
-**Not done (honest list)**
-- The Anchor program is a **scaffold**: launch, buy, sell, begin_execution, execute_phoenix and claim_echo are written; execute_gravity, settle_echo_epoch, execute_orbit and graduate are declared but need venue CPIs (Raydium/Jupiter) whose interfaces must be confirmed against the live programs. It was **not compiled, tested or deployed** here (no Solana toolchain in this sandbox). No program ID exists; no devnet transaction signatures exist.
-- No independent audit. Do not call this audited.
-- Echo on-chain uses a Merkle snapshot produced by an indexer; simnet snapshots directly from the ledger.
-- No mainnet deployment, and none should happen without explicit approval.
+### On-chain architecture (Pump.fun + custodial vault)
+- **Launch**: the creator's wallet pays for and signs a pump.fun `create_v2` (official `@pump-fun/pump-sdk`). The coin's pump.fun `creator`
+  (the fee recipient) is a **per-coin vault key derived on the server** from `FATE_VAULT_MASTER_SEED` + the mint. The server rebuilds and
+  compares the signed transaction byte for byte, sends it, and records the coin only after decoding its `CreateEvent` from the chain.
+- **Fees**: pump.fun keeps its own trading fees; FATE's input is the coin's **creator fee**. The governed share (`destiny_share_bps`, 80 %)
+  funds the destiny, the rest goes to the protocol treasury. Trades are indexed from `TradeEvent`s (curve) and `BuyEvent`/`SellEvent`s
+  (PumpSwap, after graduation), idempotent by `signature#index`.
+- **Agents** (`src/chain/agents.ts`): collect creator fees (with the PumpSwap `sweep_creator_fee` after graduation) → spend only
+  `min(ledger vault, on-chain balance − rent headroom)` → confirmed transaction → state recorded from what the chain shows:
+  - **Phoenix**: buy + burn in one transaction, on the curve or on PumpSwap; the burn is checked against the mint supply.
+  - **Gravity**: before graduation, buy half and hold in escrow; after, buy half on PumpSwap and deposit escrow + new tokens with the paired SOL
+    into the canonical pool. LP tokens stay with the vault key; FATE has no withdraw code path.
+  - **Echo**: holder snapshot from token accounts (curve, pool and vault excluded); sellers during the epoch forfeit it; allocations are fixed,
+    each wallet claims once (one SOL transfer, idempotent).
+  - **Orbit**: USDC and JitoSOL legs swap through Jupiter inside the coin's slippage bound (output allowlist; fill verified by balance delta);
+    SOL and reserve legs stay as SOL. **Mainnet only**: Jupiter has no devnet, so on devnet Orbit refuses to execute and says why.
+- **Graduation** is observed (curve complete + canonical PumpSwap pool exists), never simulated, for on-chain coins.
+- **Durability**: every transaction has a `chain_txs` row keyed by (purpose, reference). Retries reuse it, `EXPIRED` is safe to rebuild, and
+  the keeper settles `SENT` rows after a restart. The execution claim is an atomic compare-and-set backed by `UNIQUE(token_id, seq)`.
+  Destiny configs, launches, events, trades and claims are append-only, enforced by SQLite triggers.
 
-**Remaining production requirements**
-1. Build/test the Anchor program on localnet; wire the backend to RPC (replace `Protocol`'s ledger writes with transaction building + confirmation; keep the same interfaces).
-2. Indexer from program events (Geyser/webhooks) → the same tables; realtime unchanged.
-3. Venue integrations: Raydium CPMM (graduation pool creation, Gravity adds, post-graduation buybacks), Jupiter (Orbit), Pyth (valuation).
-4. Postgres + Redis/BullMQ for the keeper in a multi-instance deployment (the SQL is standard; `better-sqlite3` is isolated in `src/db`).
-5. Rate limiting on auth/faucet routes, metadata upload to decentralized storage, Phantom transaction signing.
-6. Security review of PDAs, authority revocation, CPI account validation, and an external audit.
+### Trust model (say it this way, not "trustless")
+On devnet/mainnet the destiny is **enforced by server policy with a public audit trail**, not by an on-chain program. Whoever holds
+`FATE_VAULT_MASTER_SEED` controls every coin's vault key and could, in principle, spend outside the destiny. Mitigations: there is no code path
+that does, every spend is a signed public transaction shown on the coin page, the mainnet breaker defaults off, and the immutable-config
+triggers hold. A trustless version needs the Anchor program in `programs/fate` (a scaffold, not built or deployed) with pump.fun's creator
+set to a program PDA. The UI states the custodial model on every on-chain coin.
+
+### Verification evidence (what was actually run)
+- Unit / integration: `npm test` (vitest, 56 tests), including failure injection (429s, RPC down, failed and expired transactions, restart
+  settlement, replay idempotency, Jupiter bound violations, the mainnet breaker). E2E: `npm run e2e` (Playwright, simnet).
+- `npm run verify:devnet` (`scripts/devnet-verify.ts`). Tier 1: decodes pump.fun Global/FeeConfig on devnet. Tier 2: the real program
+  simulates create_v2 (creator = vault key), buy, and the atomic Phoenix buy+burn on a live devnet curve. Tier 3: signed launch → buy → sell →
+  index → fee collection → Phoenix with the burn checked against mint supply. Needs a funded `FATE_DEVNET_KEY`.
+- `npm run verify:mainnet-sim` (`scripts/verify-amm-sim.ts`): mainnet **simulation only** (nothing signed or sent) against a live graduated pump.fun pool: AMM event
+  decoding, Phoenix pool buy+burn, Gravity pool buy+deposit (LP minted), creator-fee sweep+collect, Orbit's Jupiter USDC and JitoSOL swaps.
+
+### Going on-chain
+1. Deploy with `render.yaml` (one paid web service + persistent disk; the keeper runs in-process). Free instances sleep and lose their disk.
+2. Set `FATE_VAULT_MASTER_SEED` (≥ 32 random chars; back it up offline), `FATE_RPC_URL` (a keyed RPC), `FATE_ADMIN_KEY`, `FATE_SITE_URL`.
+3. In the admin console set the protocol treasury and Pinata (metadata URIs are immutable on-chain, so they must not depend on this server).
+4. Devnet first: `FATE_CHAIN=devnet`, then `npm run verify:devnet` with a funded key, then a launch from the UI.
+5. Mainnet only after review: `FATE_CHAIN=mainnet`, `FATE_DB_PERSISTENT=1`, `FATE_MAINNET_ENABLED=1`. Until all hold, launches, agent spends,
+   payouts and protocol sweeps refuse with the missing items listed.
+
+### Not done (honest list)
+- No external security audit. Do not call this audited.
+- The Anchor program (`programs/fate`) is a scaffold; not compiled or deployed.
+- Echo's "held through the epoch" uses indexed sells plus the end snapshot. A wallet that transfers tokens out (not a sell) and back
+  within the epoch is not caught; closing that needs per-account transfer indexing.
+- Single-writer SQLite: horizontal scaling needs Postgres + a queue.
+- Live mainnet execution has not been performed (none was authorized). Post-graduation and Orbit paths are verified by mainnet simulation only.
 
 ## Security considerations
 Documented trust assumptions: the keeper is untrusted (anyone can crank; the engine validates). The protocol authority can change fee bps and bounds for *future* launches only; a launched coin's `destiny_configs` row is never updated (there is no code path, and the test suite asserts it). Vault funds move only inside destiny execution paths. All arithmetic is checked `bigint`/`u64`. Slippage bounds apply to protocol trades and swaps. Reserve underflow, inventory exhaustion, duplicate settlement, double claims and double graduation are rejected by code and by schema constraints.

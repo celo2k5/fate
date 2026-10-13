@@ -249,3 +249,88 @@ CREATE TABLE IF NOT EXISTS protocol (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ───────────────────────── on-chain mirror (devnet / mainnet adapter) ─────────────────────────
+-- Every transaction the backend builds or sends. Durable across restarts: a PENDING row is
+-- re-checked (confirmed / expired) by the keeper before any state that depends on it is written.
+CREATE TABLE IF NOT EXISTS chain_txs (
+  id TEXT PRIMARY KEY,
+  cluster TEXT NOT NULL CHECK (cluster IN ('devnet','mainnet-beta','localnet')),
+  purpose TEXT NOT NULL,               -- launch | buy | sell | collect_fees | phoenix_buy | phoenix_burn | echo_payout | gravity_deposit | orbit_swap
+  token_id TEXT,
+  reference_id TEXT,                   -- execution id / trade intent / epoch id the tx belongs to (idempotency scope)
+  signature TEXT UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('BUILT','SENT','CONFIRMED','FAILED','EXPIRED')),
+  blockhash TEXT,
+  last_valid_block_height INTEGER,
+  slot INTEGER,
+  error TEXT,
+  lamports INTEGER NOT NULL DEFAULT 0,     -- amount moved by the transaction, for reconciliation
+  attempts INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (purpose, reference_id)       -- one live transaction per purpose+reference: retries re-use the row
+);
+CREATE INDEX IF NOT EXISTS idx_chain_txs_status ON chain_txs(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_chain_txs_token ON chain_txs(token_id, created_at DESC);
+
+-- Trade events ingested from chain logs (pump.fun TradeEvent), keyed by signature+index: replay-safe.
+CREATE TABLE IF NOT EXISTS chain_cursor (
+  token_id TEXT PRIMARY KEY REFERENCES tokens(id),
+  last_signature TEXT,                 -- newest signature already ingested for the bonding curve
+  last_slot INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+
+-- ───────────────────────── immutability, enforced by the database ─────────────────────────
+-- The engine has no UPDATE path for these rows; these triggers make sure nothing else has one either
+-- (an operator with a SQL shell included). Append-only audit trail: events, launches, executions, trades, claims.
+CREATE TRIGGER IF NOT EXISTS destiny_configs_immutable_update BEFORE UPDATE ON destiny_configs
+  BEGIN SELECT RAISE(ABORT, 'destiny_configs is immutable after launch'); END;
+CREATE TRIGGER IF NOT EXISTS destiny_configs_immutable_delete BEFORE DELETE ON destiny_configs
+  BEGIN SELECT RAISE(ABORT, 'destiny_configs is immutable after launch'); END;
+CREATE TRIGGER IF NOT EXISTS launches_immutable_update BEFORE UPDATE ON launches
+  BEGIN SELECT RAISE(ABORT, 'launches are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS launches_immutable_delete BEFORE DELETE ON launches
+  BEGIN SELECT RAISE(ABORT, 'launches are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS tokens_destiny_immutable BEFORE UPDATE OF destiny, creator, total_supply, decimals ON tokens
+  BEGIN SELECT RAISE(ABORT, 'token destiny/creator/supply are immutable after launch'); END;
+CREATE TRIGGER IF NOT EXISTS events_append_only_update BEFORE UPDATE ON events
+  BEGIN SELECT RAISE(ABORT, 'events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS events_append_only_delete BEFORE DELETE ON events
+  BEGIN SELECT RAISE(ABORT, 'events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS executions_no_delete BEFORE DELETE ON destiny_executions
+  BEGIN SELECT RAISE(ABORT, 'executions are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS executions_terminal_state BEFORE UPDATE OF status ON destiny_executions
+  WHEN OLD.status IN ('COMPLETED','FAILED')
+  BEGIN SELECT RAISE(ABORT, 'a settled execution cannot change status'); END;
+CREATE TRIGGER IF NOT EXISTS trades_no_delete BEFORE DELETE ON trades
+  BEGIN SELECT RAISE(ABORT, 'trades are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS trades_no_update BEFORE UPDATE ON trades
+  BEGIN SELECT RAISE(ABORT, 'trades are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS claims_no_delete BEFORE DELETE ON reward_claims
+  BEGIN SELECT RAISE(ABORT, 'claims are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS graduations_no_delete BEFORE DELETE ON graduations
+  BEGIN SELECT RAISE(ABORT, 'graduations are append-only'); END;
+
+-- Server-built transactions waiting for the user's signature (launch / trade). Expire with their blockhash.
+CREATE TABLE IF NOT EXISTS chain_prepares (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,                  -- launch | buy | sell
+  address TEXT NOT NULL,               -- the wallet that must sign (fee payer)
+  token_id TEXT,
+  message_b64 TEXT NOT NULL,           -- the exact compiled message; the submitted transaction must match it byte for byte
+  payload_json TEXT NOT NULL,          -- validated launch params / trade intent
+  blockhash TEXT NOT NULL,
+  last_valid_block_height INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prepares_addr ON chain_prepares(address, created_at DESC);
+
+-- Self-hosted token metadata (served at /api/metadata/<mint>) when no IPFS pinning service is configured.
+CREATE TABLE IF NOT EXISTS token_metadata (
+  mint TEXT PRIMARY KEY,
+  json TEXT NOT NULL,
+  image_data_url TEXT,
+  created_at INTEGER NOT NULL
+);

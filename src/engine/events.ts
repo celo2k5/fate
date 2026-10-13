@@ -12,7 +12,11 @@ export type FateEventType =
   | "reward.settled"
   | "reward.claimed"
   | "treasury.acquired"
-  | "wallet.funded";
+  | "wallet.funded"
+  | "protocol.paused"
+  | "protocol.resumed"
+  | "admin.settings.updated"
+  | "chain.tx";
 
 export interface FateEvent {
   id?: number;

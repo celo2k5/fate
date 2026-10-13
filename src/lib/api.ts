@@ -5,7 +5,7 @@ export const ok = (data: unknown, init?: ResponseInit) => NextResponse.json(seri
 
 export function fail(e: unknown) {
   if (e instanceof EngineError) {
-    const status = e.code === "UNAUTHENTICATED" ? 401 : e.code === "NOT_FOUND" ? 404 : 400;
+    const status = e.code === "UNAUTHENTICATED" ? 401 : e.code === "NOT_FOUND" ? 404 : e.code === "RATE_LIMITED" ? 429 : e.code === "PAUSED" ? 503 : 400;
     return NextResponse.json({ error: e.message, code: e.code }, { status });
   }
   console.error(e);

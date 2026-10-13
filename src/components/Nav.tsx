@@ -34,7 +34,7 @@ export function Nav({ network = "simnet" }: { network?: string }) {
             ))}
           </nav>
           <div className="pointer-events-auto absolute right-0 top-0 flex items-center gap-2">
-            <span className="btn btn-sm btn-glass hidden sm:inline-flex !cursor-default"><span className="text-mint">Net</span><span className="text-ivory/70">{network}</span></span>
+            <span className="btn btn-sm btn-glass !hidden sm:!inline-flex !cursor-default"><span className="text-mint">Net</span><span className="text-ivory/70">{network}</span></span>
             {w.address ? (
               <Link href="/wallet" className="btn btn-sm btn-glass" data-testid="wallet-chip"><span className="num text-ivory/70">{fmtSol(w.portfolio?.lamports ?? 0, 2)} SOL</span><span>{short(w.address)}</span></Link>
             ) : (

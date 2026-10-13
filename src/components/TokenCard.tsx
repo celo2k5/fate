@@ -18,7 +18,7 @@ export function TokenCard({ t, featured = false }: { t: TokenListItem; featured?
   const away = BigInt(String(t.execution_threshold)) - BigInt(String(t.vault));
   return (
     <Link href={`/coin/${t.id}`} data-destiny={t.destiny} data-testid="token-card"
-      className={`card card-hover group block overflow-hidden ${accumulating ? "card-accent" : ""} ${featured ? "md:grid md:grid-cols-[18rem_1fr]" : ""}`}>
+      className={`card card-hover card-metal sweep group block overflow-hidden ${accumulating ? "card-accent" : ""} ${featured ? "md:grid md:grid-cols-[18rem_1fr]" : ""}`}>
       {featured && (
         <div className="relative p-3 pb-0 md:pb-3"><div className="glow" /><div className="media"><CharacterScene name={t.destiny.toLowerCase()} className="!rounded-[18px]" /></div></div>
       )}

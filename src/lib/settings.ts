@@ -80,7 +80,12 @@ export function saveSettings(input: unknown): { ok: true; settings: Settings } |
     for (const i of parsed.error.issues) errors[i.path.join(".")] = i.message;
     return { ok: false, errors };
   }
-  getProtocol().db.prepare("INSERT INTO protocol(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(KEY, JSON.stringify(parsed.data));
+  const p = getProtocol();
+  p.db.prepare("INSERT INTO protocol(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(KEY, JSON.stringify(parsed.data));
+  // append-only audit trail of configuration changes (secrets never written, only "changed")
+  const changed = (Object.keys(parsed.data) as (keyof Settings)[]).filter((k) => JSON.stringify(parsed.data[k]) !== JSON.stringify(current[k]));
+  if (changed.length) p.db.prepare("INSERT INTO events(type, token_id, payload_json, created_at) VALUES ('admin.settings.updated', NULL, ?, ?)")
+    .run(JSON.stringify({ changed: changed.map((k) => (SECRET_KEYS.includes(k) ? { key: k, value: "(secret changed)" } : { key: k, from: current[k], to: parsed.data[k] })) }), Date.now());
   return { ok: true, settings: parsed.data };
 }
 

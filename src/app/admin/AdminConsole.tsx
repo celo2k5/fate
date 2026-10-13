@@ -5,7 +5,7 @@ import { fmtSol, fmtTok, ago } from "@/lib/format";
 
 type Settings = Record<string, string | number | boolean>;
 interface Readiness { groups: { name: string; items: { label: string; ok: boolean; hint?: string }[]; done: number; total: number }[]; done: number; total: number; score: number; canEnableMainnet: boolean }
-interface Ops { stats: Record<string, string | number>; keeper: { running: boolean; ticks: number }; tokens: Record<string, string>[]; failed: Record<string, string>[]; sessions: number; protocolTreasury: string }
+interface Ops { stats: Record<string, string | number>; keeper: { running: boolean; ticks: number; mode?: string; heartbeat?: { source: string; ageMs: number } | null }; paused?: boolean; integrity?: { ok: boolean; checked: number; problems: string[] }; chain?: string; tokens: Record<string, string>[]; failed: Record<string, string>[]; sessions: number; protocolTreasury: string }
 
 const SECTIONS: { title: string; blurb: string; fields: { key: string; label: string; type?: "text" | "number" | "password" | "date" | "select" | "checkbox"; options?: string[]; hint?: string; step?: string }[] }[] = [
   { title: "Network", blurb: "Where the program runs and how the backend reaches it.", fields: [
@@ -83,6 +83,8 @@ export function AdminConsole() {
     setMsg(null);
     const res = await fetch("/api/admin/ops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, tokenId }) });
     const j = await res.json();
+    if (typeof j.paused === "boolean") { setMsg(j.paused ? "Executions and launches paused." : "Resumed."); load(); return; }
+    if (typeof j.checked === "number") { setMsg(j.ok ? `Reconciliation ok (${j.checked} checked).` : `${j.problems.length} problem(s) found.`); load(); return; }
     setMsg(j.seeded ? `Seeded ${j.seeded.length} coins (${j.seeded.filter((x: { executed: boolean }) => x.executed).length} executed).` : Array.isArray(j) ? `Cranked ${j.length} coins, ${j.filter((x: { executed: boolean }) => x.executed).length} executed.` : j.executed ? `Executed ${j.executionId}.` : `Not executed: ${j.reason ?? j.error ?? "see state"}.`);
     load();
   }
@@ -186,7 +188,7 @@ export function AdminConsole() {
         {tab === "ops" && ops && (
           <div className="grid gap-6">
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              {[["Coins", ops.stats.tokens], ["Executions", ops.stats.executions], ["Fees routed", `${fmtSol(ops.stats.feesRouted, 2)} SOL`], ["Protocol treasury", `${fmtSol(ops.protocolTreasury, 2)} SOL`], ["Active sessions", ops.sessions], ["Keeper", ops.keeper.running ? `running · ${ops.keeper.ticks} ticks` : "stopped"]].map(([k, v]) => (
+              {[["Coins", ops.stats.tokens], ["Executions", ops.stats.executions], ["Fees routed", `${fmtSol(ops.stats.feesRouted, 2)} SOL`], ["Protocol treasury", `${fmtSol(ops.protocolTreasury, 2)} SOL`], ["Active sessions", ops.sessions], ["Keeper", ops.keeper.heartbeat ? `${ops.keeper.heartbeat.source} · ${Math.round(ops.keeper.heartbeat.ageMs / 1000)}s ago` : ops.keeper.running ? `running · ${ops.keeper.ticks} ticks` : "no heartbeat"]].map(([k, v]) => (
                 <div key={String(k)} className="card p-5"><div className="eyebrow">{k}</div><div className="display-md text-[22px] num mt-1">{String(v)}</div></div>
               ))}
             </div>
@@ -194,7 +196,15 @@ export function AdminConsole() {
               <button className="btn" onClick={() => op("crank")}>Crank all</button>
               <button className="btn btn-ghost" onClick={() => op("snapshot")}>Snapshot markets</button>
               <button className="btn btn-ghost" onClick={() => op("seed")} data-testid="seed">Seed demo ledger</button>
+              <button className={`btn ${ops.paused ? "btn-primary" : "btn-ghost"}`} onClick={() => op(ops.paused ? "resume" : "pause")} data-testid="breaker">{ops.paused ? "Resume executions" : "Pause executions"}</button>
+              <button className="btn btn-ghost" onClick={() => op("integrity")} data-testid="integrity">Run integrity check</button>
               {msg && <span className="self-center text-sm text-dim">{msg}</span>}
+            </div>
+            <div className={`card px-6 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 ${ops.integrity && !ops.integrity.ok ? "card-accent" : ""}`} data-testid="health">
+              <span className="eyebrow">Chain <b className="text-ivory ml-1">{ops.chain ?? "simnet"}</b></span>
+              <span className="eyebrow">Breaker <b className={`ml-1 ${ops.paused ? "text-phoenix" : "text-mint"}`}>{ops.paused ? "PAUSED" : "live"}</b></span>
+              <span className="eyebrow">Reconciliation <b className={`ml-1 ${ops.integrity?.ok ? "text-mint" : "text-phoenix"}`}>{ops.integrity ? (ops.integrity.ok ? `ok · ${ops.integrity.checked} checked` : `${ops.integrity.problems.length} problem(s)`) : "—"}</b></span>
+              {ops.integrity && !ops.integrity.ok && <ul className="w-full text-sm text-phoenix list-disc pl-5">{ops.integrity.problems.map((x) => <li key={x}>{x}</li>)}</ul>}
             </div>
             <div className="card p-6 overflow-x-auto">
               <h2 className="display-md text-[22px]">Coins</h2>

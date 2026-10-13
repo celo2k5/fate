@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/ratelimit";
 import { z } from "zod";
 import { ok, fail } from "@/lib/api";
 import { requireSession, verifyIntent } from "@/lib/auth";
@@ -25,6 +26,7 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
+    rateLimit("launch", req);
     const s = await requireSession();
     const { intent, signature, message } = verifyIntent<z.infer<typeof schema>>(await req.json(), "launch", s.address);
     const v = schema.parse(intent);

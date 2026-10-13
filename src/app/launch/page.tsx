@@ -12,5 +12,6 @@ export default async function LaunchPage({ searchParams }: { searchParams: Promi
     executionThreshold: { min: Number(B.executionThreshold.min) / 1e9, max: Number(B.executionThreshold.max) / 1e9 },
     graduationThreshold: { min: Number(B.graduationThreshold.min) / 1e9, max: Number(B.graduationThreshold.max) / 1e9 },
   };
-  return <LaunchFlow initialDestiny={initial} bounds={bounds} />;
+  const onChain = (process.env.FATE_CHAIN ?? "simnet") !== "simnet";
+  return <LaunchFlow initialDestiny={initial} bounds={bounds} onChain={onChain} />;
 }

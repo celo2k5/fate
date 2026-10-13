@@ -16,7 +16,7 @@ interface Form {
   orbit: { SOL: number; USDC: number; LST: number; RESERVE: number };
 }
 
-export function LaunchFlow({ initialDestiny, bounds }: { initialDestiny: DestinyType | null; bounds: Record<string, { min: number; max: number }> }) {
+export function LaunchFlow({ initialDestiny, bounds, onChain = false }: { initialDestiny: DestinyType | null; bounds: Record<string, { min: number; max: number }>; onChain?: boolean }) {
   const w = useWallet();
   const router = useRouter();
   const [step, setStep] = useState(initialDestiny ? 1 : 0);
@@ -72,16 +72,30 @@ export function LaunchFlow({ initialDestiny, bounds }: { initialDestiny: Destiny
         orbitAllocation: { SOL: f.orbit.SOL * 100, USDC: f.orbit.USDC * 100, LST: f.orbit.LST * 100, RESERVE: f.orbit.RESERVE * 100 },
       };
       const signed = await w.signIntent(intent);
-      setStatus({ phase: "confirming", text: "Creating the mint, curve and vault…" });
-      const r = await fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      let j: { token: { id: string }; signature: string; error?: string; explorer?: string };
+      if (onChain) {
+        setStatus({ phase: "confirming", text: "Building the create transaction (mint, bonding curve, vault authority)…" });
+        const prep = await fetch("/api/chain/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
+        const pj = await prep.json();
+        if (!prep.ok) throw new Error(pj.error);
+        setStatus({ phase: "signing", text: `Approve the transaction in your wallet. Mint ${pj.mint.slice(0, 8)}…` });
+        const signedTx = await w.signTransaction(pj.tx);
+        setStatus({ phase: "confirming", text: "Sent. Waiting for on-chain confirmation…" });
+        const sub = await fetch("/api/chain/launch", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prepareId: pj.prepareId, signedTx }) });
+        j = await sub.json();
+        if (!sub.ok) throw new Error(j.error);
+      } else {
+        setStatus({ phase: "confirming", text: "Creating the mint, curve and vault…" });
+        const r = await fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
+        j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+      }
       // only show success once the token's state actually exists
       const check = await fetch(`/api/tokens/${j.token.id}`, { cache: "no-store" });
       if (!check.ok) throw new Error("launch was submitted but the token state could not be read back");
       const d = await check.json();
       if (!d.state || !d.curve || d.config.destiny !== f.destiny) throw new Error("token state is incomplete");
-      setStatus({ phase: "done", tokenId: j.token.id, signature: j.signature, text: "Launched. Vault initialised, destiny recorded, trading open." });
+      setStatus({ phase: "done", tokenId: j.token.id, signature: j.signature, text: onChain ? "Launched on-chain. Mint created, bonding curve open, vault authority recorded." : "Launched. Vault initialised, destiny recorded, trading open." });
       setTimeout(() => router.push(`/coin/${j.token.id}`), 1800);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -127,7 +141,7 @@ export function LaunchFlow({ initialDestiny, bounds }: { initialDestiny: Destiny
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {DESTINIES.map((d) => (
               <button key={d} type="button" onClick={() => set("destiny", d)} data-destiny={d} data-testid={`pick-${d}`} aria-pressed={f.destiny === d}
-                className={`text-left card p-4 transition-transform ${f.destiny === d ? "card-accent scale-[1.01]" : "opacity-80 hover:opacity-100"}`}>
+                className={`text-left card card-metal sweep p-4 transition-transform ${f.destiny === d ? "card-accent scale-[1.01]" : "opacity-80 hover:opacity-100"}`}>
                 <CharacterScene name={d.toLowerCase()} />
                 <div className="card-sm mt-4 rounded-[12px] px-5 py-4">
                   <div className="display text-[22px]" style={{ color: "var(--accent)" }}>{DESTINY_META[d].title}</div>

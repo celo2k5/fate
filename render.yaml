@@ -1,0 +1,48 @@
+# Render Blueprint for an ON-CHAIN FATE deployment (devnet or mainnet).
+#
+# The existing `fate-launchpad` service (free plan, simnet demo) is NOT managed by this file and is unaffected.
+# Apply this as a new Blueprint when you are ready to run real chain agents.
+#
+# Why one service with a disk, not web + background worker: the ledger is SQLite, and Render services do not share a
+# filesystem. A separate worker would get its own empty database. So the keeper runs inside the web process
+# (FATE_KEEPER_MODE=inprocess) on a paid instance that never sleeps, with the ledger on a persistent disk.
+# To split web and worker later, move the ledger to Postgres first (SQL is standard; better-sqlite3 is isolated in src/db).
+services:
+  - type: web
+    name: fate-onchain
+    runtime: node
+    plan: starter            # free instances sleep and have no disk: not acceptable for financial agents
+    region: virginia
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health?quick=1
+    autoDeploy: true
+    numInstances: 1          # exactly one keeper; the execution claim is atomic, but one writer keeps SQLite simple
+    disk:
+      name: fate-ledger
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: FATE_CHAIN
+        value: devnet         # devnet | mainnet
+      - key: FATE_DB_PATH
+        value: /var/data/fate.db
+      - key: FATE_DB_PERSISTENT
+        value: "1"            # attests the ledger is on the disk above (required by the mainnet breaker)
+      - key: FATE_KEEPER_MODE
+        value: inprocess
+      - key: FATE_KEEPER_INTERVAL_MS
+        value: "6000"
+      - key: FATE_RPC_URL
+        sync: false           # a keyed RPC (Helius / Triton / QuickNode); public RPCs rate-limit getProgramAccounts and getTransaction
+      - key: FATE_VAULT_MASTER_SEED
+        sync: false           # >= 32 random chars. Every coin's vault key derives from it. Back it up offline; losing it loses every vault.
+      - key: FATE_ADMIN_KEY
+        sync: false
+      - key: FATE_SESSION_SECRET
+        generateValue: true
+      - key: FATE_SITE_URL
+        sync: false           # public https URL of this service (metadata links)
+      - key: FATE_MAINNET_ENABLED
+        value: "0"            # set to 1 only with FATE_CHAIN=mainnet, after the checklist in README "Going on-chain"

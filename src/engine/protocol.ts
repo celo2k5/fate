@@ -26,6 +26,7 @@ export interface TokenRow {
   website: string | null; x: string | null; telegram: string | null;
   destiny: DestinyType; creator: string; decimals: bigint; total_supply: bigint; circulating: bigint;
   burned: bigint; status: "CURVE" | "GRADUATING" | "AMM"; created_at: bigint;
+  chain?: "SIMNET" | "DEVNET" | "MAINNET"; mint?: string | null; bonding_curve?: string | null; vault_authority?: string | null; metadata_uri?: string | null;
 }
 export interface ConfigRow {
   token_id: string; destiny: DestinyType; trade_fee_bps: bigint; destiny_share_bps: bigint;
@@ -36,6 +37,7 @@ export interface StateRow {
   token_id: string; vault_address: string; state: ExecState; executions: bigint; last_execution_at: bigint | null;
   last_error: string | null; lifetime_fees: bigint; total_burned: bigint; total_liquidity_added: bigint;
   total_rewards_distributed: bigint; total_treasury_deployed: bigint; updated_at: bigint;
+  failure_count?: bigint; next_retry_at?: bigint | null;
 }
 export interface CurveRow {
   token_id: string; curve_address: string; virtual_sol: bigint; virtual_tokens: bigint; real_sol: bigint;
@@ -124,6 +126,7 @@ export class Protocol {
   // ───────────────────────── launch ─────────────────────────
 
   launch(input: LaunchInput) {
+    if (this.isPaused()) throw new EngineError("PAUSED", "launches are paused by the operator");
     const B = PROTOCOL.bounds;
     const executionThreshold = clamp(input.executionThreshold ?? B.executionThreshold.default, B.executionThreshold.min, B.executionThreshold.max);
     const cooldownMs = clamp(input.cooldownMs ?? B.cooldownMs.default, B.cooldownMs.min, B.cooldownMs.max);
@@ -143,10 +146,13 @@ export class Protocol {
     }
     if (input.destiny === "PHOENIX") params.buybackShareBps = clamp(input.params?.buybackShareBps ?? 10_000, 1_000, 10_000);
 
-    const id = newAddress();
+    const id = input.chain?.mint ?? newAddress();
     const vault = `vault:${id}`;
     const curve = `curve:${id}`;
     const t = now();
+    const supply = input.chain?.totalSupply ?? PROTOCOL.totalSupply;
+    const curveTokens = input.chain?.realTokens ?? PROTOCOL.curveTokens;
+    const reservedTokens = input.chain ? supply - curveTokens : PROTOCOL.reservedTokens;
     const configHash = sha256(JSON.stringify({ destiny: input.destiny, executionThreshold: executionThreshold.toString(), cooldownMs, maxSlippageBps, graduationThreshold: graduationThreshold.toString(), params }));
     const authorities = {
       destiny: "none — immutable at launch",
@@ -161,19 +167,21 @@ export class Protocol {
       this.ensureWallet(input.creator, "user");
       this.ensureWallet(vault, "vault");
       this.ensureWallet(curve, "curve");
-      this.db.prepare(`INSERT INTO tokens(id,name,ticker,description,image,website,x,telegram,destiny,creator,decimals,total_supply,circulating,burned,status,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,6,?,?,0,'CURVE',?)`).run(
+      if (input.chain) this.ensureWallet(input.chain.bondingCurve, "curve");
+      this.db.prepare(`INSERT INTO tokens(id,name,ticker,description,image,website,x,telegram,destiny,creator,decimals,total_supply,circulating,burned,status,created_at,chain,mint,bonding_curve,vault_authority,metadata_uri)
+        VALUES (?,?,?,?,?,?,?,?,?,?,6,?,?,0,'CURVE',?,?,?,?,?,?)`).run(
         id, input.name, input.ticker.toUpperCase(), input.description, input.image ?? null, input.website ?? null, input.x ?? null, input.telegram ?? null,
-        input.destiny, input.creator, PROTOCOL.totalSupply, PROTOCOL.totalSupply, t,
+        input.destiny, input.creator, supply, supply, t,
+        input.chain?.chain ?? "SIMNET", input.chain?.mint ?? null, input.chain?.bondingCurve ?? null, input.chain?.vaultAuthority ?? null, input.chain?.metadataUri ?? null,
       );
       this.db.prepare("INSERT INTO launches(token_id, signature, signed_message, authorities_json, created_at) VALUES (?,?,?,?,?)").run(id, input.signature, input.signedMessage, JSON.stringify(authorities), t);
       this.db.prepare(`INSERT INTO destiny_configs(token_id,destiny,trade_fee_bps,destiny_share_bps,execution_threshold,cooldown_ms,max_slippage_bps,graduation_threshold,params_json,config_hash)
         VALUES (?,?,?,?,?,?,?,?,?,?)`).run(id, input.destiny, PROTOCOL.tradeFeeBps, PROTOCOL.destinyShareBps, executionThreshold, cooldownMs, maxSlippageBps, graduationThreshold, JSON.stringify(params), configHash);
       this.db.prepare("INSERT INTO destiny_states(token_id, vault_address, state, updated_at) VALUES (?,?,'IDLE',?)").run(id, vault, t);
       this.db.prepare(`INSERT INTO curves(token_id,curve_address,virtual_sol,virtual_tokens,real_sol,real_tokens,reserved_tokens,complete)
-        VALUES (?,?,?,?,0,?,?,0)`).run(id, curve, PROTOCOL.initialVirtualSol, PROTOCOL.initialVirtualTokens, PROTOCOL.curveTokens, PROTOCOL.reservedTokens);
-      this.addHolding(id, curve, PROTOCOL.curveTokens);
-      this.addHolding(id, `reserve:${id}`, PROTOCOL.reservedTokens);
+        VALUES (?,?,?,?,0,?,?,0)`).run(id, input.chain?.bondingCurve ?? curve, input.chain?.virtualSol ?? PROTOCOL.initialVirtualSol, input.chain?.virtualTokens ?? PROTOCOL.initialVirtualTokens, curveTokens, reservedTokens);
+      this.addHolding(id, input.chain?.bondingCurve ?? curve, curveTokens);
+      this.addHolding(id, `reserve:${id}`, reservedTokens);
       this.db.prepare("UPDATE wallets SET kind='escrow' WHERE address = ?").run(`reserve:${id}`);
       if (input.destiny === "ORBIT") {
         this.ensureWallet(`treasury:${id}`, "escrow");
@@ -264,6 +272,8 @@ export class Protocol {
   private executeTrade(side: "BUY" | "SELL", input: TradeInput, isProtocol: boolean) {
     const dup = this.db.prepare("SELECT id FROM trades WHERE signature = ?").get(input.signature) as { id: string } | undefined;
     if (dup) return this.getTrade(dup.id)!; // idempotent replay
+    const chainOf = (this.db.prepare("SELECT chain FROM tokens WHERE id=?").get(input.tokenId) as { chain?: string } | undefined)?.chain ?? "SIMNET";
+    if (chainOf !== "SIMNET") throw new EngineError("ON_CHAIN", "this coin trades on-chain: sign the transaction from your wallet (POST /api/chain/trade)");
     const tx = this.db.transaction(() => {
       const token = this.getToken(input.tokenId);
       if (!token) throw new EngineError("NOT_FOUND", "token not found");
@@ -322,6 +332,109 @@ export class Protocol {
     return this.getTrade(tradeId)!;
   }
 
+  /**
+   * Mirror of an on-chain TradeEvent (devnet / mainnet). Nothing is simulated: amounts, fees and reserves come from the
+   * event the program emitted. The creator fee is FATE's whole take; it is split by the governed share into the coin's
+   * vault (destiny_fee) and the protocol treasury (protocol_fee). Idempotent by `signature#index`.
+   */
+  recordChainTrade(input: { tokenId: string; signature: string; slot: number; blockTime: number | null; trader: string; side: "BUY" | "SELL"; solAmount: bigint; tokenAmount: bigint; creatorFee: bigint; totalFee: bigint; virtualSol: bigint; virtualTokens: bigint; realSol: bigint; realTokens: bigint; isProtocol: boolean; venue?: "CURVE" | "AMM"; poolAddress?: string }) {
+    const dup = this.db.prepare("SELECT id FROM trades WHERE signature = ?").get(input.signature) as { id: string } | undefined;
+    if (dup) return { tradeId: dup.id, duplicate: true };
+    const tx = this.db.transaction(() => {
+      const token = this.getToken(input.tokenId);
+      if (!token) throw new EngineError("NOT_FOUND", "token not found");
+      const cfg = this.getConfig(input.tokenId);
+      const venue = input.venue ?? "CURVE";
+      // tokens move against the venue the trade hit: the bonding curve, or (graduated) the PumpSwap pool
+      const curveAddr = venue === "AMM" ? (input.poolAddress ?? `pool:${input.tokenId}`) : (token.bonding_curve ?? `curve:${input.tokenId}`);
+      if (venue === "AMM") this.ensureWallet(curveAddr, "pool");
+      const vault = `vault:${input.tokenId}`;
+      this.ensureWallet(input.trader, input.isProtocol ? "vault" : "user");
+      const destinyFee = bps(input.creatorFee, Number(cfg.destiny_share_bps));
+      const protocolFee = input.creatorFee - destinyFee;
+      if (input.side === "BUY") { this.addHolding(input.tokenId, curveAddr, -input.tokenAmount); this.addHolding(input.tokenId, input.trader, input.tokenAmount); }
+      else {
+        this.addHolding(input.tokenId, input.trader, -input.tokenAmount); this.addHolding(input.tokenId, curveAddr, input.tokenAmount);
+        if (token.destiny === "ECHO" && !input.isProtocol) this.db.prepare("UPDATE holdings SET last_sell_epoch = ? WHERE token_id = ? AND address = ?").run(Number(this.getState(input.tokenId).executions) + 1, input.tokenId, input.trader);
+      }
+      // reserves as the program reported them after this trade
+      if (venue === "AMM") this.db.prepare("UPDATE pools SET sol_reserve=?, token_reserve=? WHERE token_id=?").run(input.realSol, input.realTokens, input.tokenId);
+      else this.db.prepare("UPDATE curves SET virtual_sol=?, virtual_tokens=?, real_sol=?, real_tokens=? WHERE token_id=?").run(input.virtualSol, input.virtualTokens, input.realSol, input.realTokens, input.tokenId);
+      this.credit(vault, destinyFee);
+      this.credit(PROTOCOL.protocolTreasury, protocolFee);
+      const tradeId = newId("trade");
+      const t = input.blockTime ? input.blockTime * 1000 : now();
+      const price = Number(input.solAmount) / Math.max(1, Number(input.tokenAmount)) * 1e6;
+      this.db.prepare(`INSERT INTO trades(id,token_id,trader,side,venue,sol_amount,token_amount,fee_lamports,price_lamports_per_token,signature,is_protocol,created_at,slot)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(tradeId, input.tokenId, input.trader, input.side, venue, input.solAmount, input.tokenAmount, input.totalFee, price, input.signature, input.isProtocol ? 1 : 0, t, input.slot);
+      this.db.prepare("INSERT INTO fee_events(id,token_id,trade_id,total_fee,destiny_fee,protocol_fee,created_at) VALUES (?,?,?,?,?,?,?)").run(newId("fee"), input.tokenId, tradeId, input.creatorFee, destinyFee, protocolFee, t);
+      this.db.prepare("UPDATE destiny_states SET lifetime_fees = lifetime_fees + ?, state = CASE WHEN state='IDLE' THEN 'ACCUMULATING' ELSE state END, updated_at = ? WHERE token_id = ?").run(destinyFee, now(), input.tokenId);
+      this.snapshotVault(input.tokenId);
+      this.emit("trade", input.tokenId, { tradeId, side: input.side, trader: input.trader, venue, solAmount: input.solAmount, tokenAmount: input.tokenAmount, fee: input.totalFee, isProtocol: input.isProtocol, ticker: token.ticker, destiny: token.destiny, signature: input.signature.split("#")[0] });
+      this.emit("fee.deposited", input.tokenId, { tradeId, destinyFee, protocolFee, vault: this.vaultBalance(input.tokenId), ticker: token.ticker, destiny: token.destiny });
+      return tradeId;
+    });
+    const tradeId = tx();
+    this.snapshotMarket(input.tokenId);
+    return { tradeId, duplicate: false };
+  }
+
+  /** Chain-side execution bookkeeping: open an execution row (same UNIQUE(token_id, seq) guard as the simnet). */
+  beginChainExecution(id: string): { execId: string; seq: number; vault: bigint } {
+    const token = this.getToken(id)!;
+    if (this.getState(id).state === "EXECUTING") throw new EngineError("IN_PROGRESS", "an execution is already in progress");
+    const el = this.eligibility(id);
+    if (!el.eligible) throw new EngineError("NOT_ELIGIBLE", el.reason);
+    const t = now();
+    const seq = Number((this.db.prepare("SELECT COALESCE(MAX(seq),0) m FROM destiny_executions WHERE token_id=?").get(id) as { m: bigint }).m) + 1;
+    const execId = newId("exec");
+    const tx = this.db.transaction(() => {
+      // atomic claim: two keepers racing for the same coin cannot both get here (compare-and-set on the state row,
+      // backed by UNIQUE(token_id, seq) on the execution row)
+      const claimed = this.db.prepare("UPDATE destiny_states SET state='EXECUTING', updated_at=? WHERE token_id=? AND state <> 'EXECUTING'").run(t, id);
+      if (claimed.changes !== 1) throw new EngineError("IN_PROGRESS", "an execution is already in progress");
+      this.emit("destiny.eligible", id, { ticker: token.ticker, destiny: token.destiny, vault: el.vault, threshold: el.threshold });
+      this.db.prepare("INSERT INTO destiny_executions(id,token_id,destiny,seq,status,vault_before,venue,created_at) VALUES (?,?,?,?,'EXECUTING',?,?,?)").run(execId, id, token.destiny, seq, el.vault, token.status === "AMM" ? "AMM" : "CURVE", t);
+      this.emit("destiny.executing", id, { ticker: token.ticker, destiny: token.destiny, executionId: execId, seq });
+    });
+    tx();
+    return { execId, seq, vault: el.vault };
+  }
+  completeChainExecution(id: string, execId: string, seq: number, signature: string, amountUsed: bigint, result: Record<string, unknown>, apply: () => void) {
+    const token = this.getToken(id)!;
+    const run = this.db.transaction(() => {
+      apply();
+      const done = now();
+      this.db.prepare("UPDATE destiny_executions SET status='COMPLETED', amount_used=?, result_json=?, signature=?, completed_at=? WHERE id=?").run(amountUsed, JSON.stringify(result, (_, v) => (typeof v === "bigint" ? v.toString() : v)), signature, done, execId);
+      this.db.prepare("UPDATE destiny_states SET state='COMPLETED', executions = executions + 1, last_execution_at=?, last_error=NULL, failure_count=0, next_retry_at=NULL, updated_at=? WHERE token_id=?").run(done, done, id);
+      this.snapshotVault(id);
+      this.emit("destiny.executed", id, { ticker: token.ticker, destiny: token.destiny, executionId: execId, seq, signature, amountUsed, ...result });
+    });
+    run();
+    this.snapshotMarket(id);
+  }
+  failChainExecution(id: string, execId: string, seq: number, error: string) {
+    const token = this.getToken(id)!;
+    const st = this.getState(id);
+    const cfg = this.getConfig(id);
+    const done = now();
+    const failures = Number(st.failure_count ?? 0n) + 1;
+    const backoff = Math.min(Number(cfg.cooldown_ms) * 2 ** Math.min(failures, 10), 3_600_000);
+    this.db.prepare("UPDATE destiny_executions SET status='FAILED', error=?, completed_at=? WHERE id=? AND status='EXECUTING'").run(error.slice(0, 500), done, execId);
+    this.db.prepare("UPDATE destiny_states SET state='FAILED', last_error=?, last_execution_at=?, failure_count=?, next_retry_at=?, updated_at=? WHERE token_id=?").run(error.slice(0, 500), done, failures, done + backoff, done, id);
+    this.emit("destiny.failed", id, { ticker: token.ticker, destiny: token.destiny, executionId: execId, seq, error: error.slice(0, 200) });
+  }
+  /** Spend from the vault mirror (after the on-chain spend confirmed). */
+  spendVault(id: string, lamports: bigint) { this.debit(`vault:${id}`, lamports); }
+  burnMirror(id: string, authority: string, tokens: bigint) {
+    this.addHolding(id, authority, -tokens);
+    this.addHolding(id, PROTOCOL.burnAddress, tokens);
+    this.db.prepare("UPDATE tokens SET burned = burned + ?, circulating = circulating - ? WHERE id=?").run(tokens, tokens, id);
+    this.db.prepare("UPDATE destiny_states SET total_burned = total_burned + ? WHERE token_id=?").run(tokens, id);
+  }
+  creditHolding(id: string, address: string, tokens: bigint) { this.ensureWallet(address, "escrow"); this.addHolding(id, address, tokens); }
+  chainTokens(): TokenRow[] { return this.db.prepare("SELECT * FROM tokens WHERE chain <> 'SIMNET' AND status <> 'GRADUATING'").all() as TokenRow[]; }
+
   getTrade(id: string) {
     return this.db.prepare("SELECT * FROM trades WHERE id = ?").get(id) as Row | undefined;
   }
@@ -346,6 +459,8 @@ export class Protocol {
   maybeGraduate(id: string) {
     const token = this.getToken(id);
     if (!token || token.status !== "CURVE") return null;
+    // on-chain coins graduate on pump.fun's terms, observed from the chain (recordChainGraduation), never simulated here
+    if (token.chain && token.chain !== "SIMNET") return null;
     const cfg = this.getConfig(id);
     const curve = this.getCurve(id);
     if (curve.real_sol < cfg.graduation_threshold) return null;
@@ -426,6 +541,30 @@ export class Protocol {
     return sig;
   }
 
+  /**
+   * An on-chain coin's curve completed and pump.fun migrated it to its canonical PumpSwap pool. Recorded from what the
+   * chain shows (pool account + reserves); pump.fun's own migration LP is not FATE's, so lp_locked starts at 0 and only
+   * Gravity deposits add to it. Idempotent.
+   */
+  recordChainGraduation(id: string, pool: { poolKey: string; baseReserve: bigint; quoteReserve: bigint; lpSupply: bigint }) {
+    const token = this.getToken(id);
+    if (!token || token.status === "AMM") return false;
+    const t = now();
+    this.db.transaction(() => {
+      this.ensureWallet(pool.poolKey, "pool");
+      // the migration moves the curve's remaining inventory into the pool: mirror it so pool-side trades settle against it
+      const curveAddr = token.bonding_curve ?? `curve:${id}`;
+      const left = (this.db.prepare("SELECT COALESCE(amount,0) a FROM holdings WHERE token_id=? AND address=?").get(id, curveAddr) as { a: bigint } | undefined)?.a ?? 0n;
+      if (left > 0n) { this.addHolding(id, curveAddr, -left); this.addHolding(id, pool.poolKey, left); }
+      this.db.prepare("UPDATE tokens SET status='AMM' WHERE id=?").run(id);
+      this.db.prepare("UPDATE curves SET complete=1 WHERE token_id=?").run(id);
+      this.db.prepare("INSERT OR IGNORE INTO pools(token_id,pool_address,sol_reserve,token_reserve,lp_supply,lp_locked,created_at) VALUES (?,?,?,?,?,0,?)").run(id, pool.poolKey, pool.quoteReserve, pool.baseReserve, pool.lpSupply, t);
+      this.db.prepare("INSERT OR IGNORE INTO graduations(token_id,sol_migrated,tokens_migrated,lp_locked,signature,created_at) VALUES (?,?,?,0,?,?)").run(id, pool.quoteReserve, pool.baseReserve, `pumpswap:${pool.poolKey}`, t);
+      this.emit("graduation", id, { ticker: token.ticker, destiny: token.destiny, solMigrated: pool.quoteReserve, tokensMigrated: pool.baseReserve, lpLocked: 0n, burned: 0n, signature: `pumpswap:${pool.poolKey}`, venue: "PumpSwap" });
+    })();
+    return true;
+  }
+
   // ───────────────────────── destiny engine ─────────────────────────
 
   /** Why a token is or isn't eligible right now. Pure read. */
@@ -450,6 +589,8 @@ export class Protocol {
     }
     if (vault < threshold) return { eligible: false, reason: "vault below threshold", progress, nextAt: cooldownUntil > t ? cooldownUntil : null, threshold, vault };
     if (t < cooldownUntil) return { eligible: false, reason: "cooldown", progress, nextAt: cooldownUntil, threshold, vault };
+    const retryAt = st.next_retry_at ? Number(st.next_retry_at) : 0;
+    if (t < retryAt) return { eligible: false, reason: `backoff after ${Number(st.failure_count ?? 0n)} failure(s)`, progress, nextAt: retryAt, threshold, vault };
     return { eligible: true, reason: "threshold reached", progress, nextAt: null, threshold, vault };
   }
 
@@ -463,6 +604,8 @@ export class Protocol {
     if (!token) throw new EngineError("NOT_FOUND", "token not found");
     const st = this.getState(id);
     const t = now();
+    if (this.isPaused()) return { executed: false, state: st.state, reason: "executions paused by operator" };
+    if (token.chain && token.chain !== "SIMNET") return { executed: false, state: st.state, reason: "on-chain coin: executed by the chain keeper" };
     if (st.state === "EXECUTING") {
       if (Number(st.updated_at) + 60_000 > t) return { executed: false, state: "EXECUTING", reason: "execution in progress" };
       this.db.prepare("UPDATE destiny_states SET state='FAILED', last_error='stale execution recovered', last_execution_at=?, updated_at=? WHERE token_id=?").run(t, t, id);
@@ -497,7 +640,7 @@ export class Protocol {
         this.db.prepare("UPDATE destiny_executions SET status='COMPLETED', amount_used=?, result_json=?, completed_at=? WHERE id=?").run(
           result.amountUsed, JSON.stringify(result, (_, v) => (typeof v === "bigint" ? v.toString() : v)), done, execId,
         );
-        this.db.prepare("UPDATE destiny_states SET state='COMPLETED', executions = executions + 1, last_execution_at=?, last_error=NULL, updated_at=? WHERE token_id=?").run(done, done, id);
+        this.db.prepare("UPDATE destiny_states SET state='COMPLETED', executions = executions + 1, last_execution_at=?, last_error=NULL, failure_count=0, next_retry_at=NULL, updated_at=? WHERE token_id=?").run(done, done, id);
         this.snapshotVault(id);
         this.emit("destiny.executed", id, { ticker: token.ticker, destiny: token.destiny, executionId: execId, seq, ...result });
       });
@@ -508,14 +651,74 @@ export class Protocol {
       const msg = e instanceof Error ? e.message : String(e);
       const done = now();
       this.db.prepare("UPDATE destiny_executions SET status='FAILED', error=?, completed_at=? WHERE id=?").run(msg, done, execId);
-      this.db.prepare("UPDATE destiny_states SET state='FAILED', last_error=?, last_execution_at=?, updated_at=? WHERE token_id=?").run(msg, done, done, id);
+      // exponential backoff: cooldown × 2^failures, capped at 1 h, so a persistently failing coin cannot spin the keeper
+      const failures = Number(st.failure_count ?? 0n) + 1;
+      const cfg = this.getConfig(id);
+      const backoff = Math.min(Number(cfg.cooldown_ms) * 2 ** Math.min(failures, 10), 3_600_000);
+      this.db.prepare("UPDATE destiny_states SET state='FAILED', last_error=?, last_execution_at=?, failure_count=?, next_retry_at=?, updated_at=? WHERE token_id=?").run(msg, done, failures, done + backoff, done, id);
       this.emit("destiny.failed", id, { ticker: token.ticker, destiny: token.destiny, executionId: execId, seq, error: msg });
       return { executed: false, state: "FAILED", executionId: execId, reason: msg };
     }
   }
 
+  // ───────────────────────── operations: breaker, integrity, heartbeat ─────────────────────────
+
+  /** Operator circuit breaker: when set, no destiny execution and no launch proceeds; reads and claims still work. */
+  isPaused(): boolean {
+    const row = this.db.prepare("SELECT value FROM protocol WHERE key='paused'").get() as { value: string } | undefined;
+    return row?.value === "1";
+  }
+  setPaused(paused: boolean, by = "admin") {
+    this.db.prepare("INSERT INTO protocol(key,value) VALUES ('paused',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(paused ? "1" : "0");
+    this.emit(paused ? "protocol.paused" : "protocol.resumed", null, { by });
+  }
+  /** Keeper liveness, written by whichever keeper is running (in-process or the external worker). */
+  heartbeat(source: string, extra: Record<string, unknown> = {}) {
+    this.db.prepare("INSERT INTO protocol(key,value) VALUES ('keeper.heartbeat',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+      .run(JSON.stringify({ source, at: now(), pid: process.pid, ...extra }));
+  }
+  keeperHeartbeat(): { source: string; at: number; pid?: number; ageMs: number } | null {
+    const row = this.db.prepare("SELECT value FROM protocol WHERE key='keeper.heartbeat'").get() as { value: string } | undefined;
+    if (!row) return null;
+    const v = JSON.parse(row.value) as { source: string; at: number; pid?: number };
+    return { ...v, ageMs: now() - v.at };
+  }
+  /**
+   * Reconciliation. Recomputes what must hold if the ledger is consistent and reports every violation:
+   * - every destiny config still hashes to the value recorded at launch (tamper check),
+   * - every vault's balance equals routed destiny fees minus what completed executions spent,
+   * - burned supply equals the sum of completed Phoenix burns, and circulating = total − burned,
+   * - no execution is stuck in EXECUTING for more than a minute, no claim epoch is over-claimed.
+   */
+  verifyIntegrity(): { ok: boolean; checked: number; problems: string[] } {
+    const problems: string[] = [];
+    const cfgs = this.db.prepare("SELECT * FROM destiny_configs").all() as ConfigRow[];
+    for (const c of cfgs) {
+      const expect = sha256(JSON.stringify({ destiny: c.destiny, executionThreshold: c.execution_threshold.toString(), cooldownMs: Number(c.cooldown_ms), maxSlippageBps: Number(c.max_slippage_bps), graduationThreshold: c.graduation_threshold.toString(), params: JSON.parse(c.params_json) }));
+      if (expect !== c.config_hash) problems.push(`config hash mismatch for ${c.token_id}`);
+    }
+    const tokens = this.db.prepare("SELECT id, burned, circulating, total_supply, destiny FROM tokens").all() as { id: string; burned: bigint; circulating: bigint; total_supply: bigint; destiny: string }[];
+    for (const t of tokens) {
+      const fees = (this.db.prepare("SELECT COALESCE(SUM(destiny_fee),0) s FROM fee_events WHERE token_id=?").get(t.id) as { s: bigint }).s;
+      const spent = (this.db.prepare("SELECT COALESCE(SUM(amount_used),0) s FROM destiny_executions WHERE token_id=? AND status='COMPLETED'").get(t.id) as { s: bigint }).s;
+      const vault = this.vaultBalance(t.id);
+      if (vault !== fees - spent) problems.push(`vault drift for ${t.id}: balance ${vault} ≠ fees ${fees} − spent ${spent}`);
+      if (t.circulating !== t.total_supply - t.burned) problems.push(`supply drift for ${t.id}`);
+      if (t.destiny === "PHOENIX") {
+        const burnedByExec = (this.db.prepare("SELECT result_json FROM destiny_executions WHERE token_id=? AND status='COMPLETED'").all(t.id) as { result_json: string }[])
+          .reduce((a, r) => a + BigInt((JSON.parse(r.result_json) as { tokensBurned?: string }).tokensBurned ?? "0"), 0n);
+        if (burnedByExec !== t.burned) problems.push(`burn drift for ${t.id}: executions ${burnedByExec} ≠ token.burned ${t.burned}`);
+      }
+    }
+    const stuck = this.db.prepare("SELECT id FROM destiny_executions WHERE status='EXECUTING' AND created_at < ?").all(now() - 60_000) as { id: string }[];
+    for (const s of stuck) problems.push(`execution ${s.id} stuck in EXECUTING`);
+    const over = this.db.prepare("SELECT e.id FROM reward_epochs e WHERE e.claimed > e.funded").all() as { id: string }[];
+    for (const o of over) problems.push(`epoch ${o.id} over-claimed`);
+    return { ok: problems.length === 0, checked: cfgs.length + tokens.length, problems };
+  }
+
   crankAll() {
-    const ids = this.db.prepare("SELECT id FROM tokens WHERE status <> 'GRADUATING'").all() as { id: string }[];
+    const ids = this.db.prepare("SELECT id FROM tokens WHERE status <> 'GRADUATING' AND chain = 'SIMNET'").all() as { id: string }[];
     return ids.map((r) => ({ id: r.id, ...this.crank(r.id) }));
   }
 
@@ -731,8 +934,11 @@ export class Protocol {
     }
     if (token.destiny === "ORBIT") {
       const assets = this.db.prepare("SELECT asset, amount, cost_basis_lamports FROM treasury_assets WHERE token_id=?").all(id) as { asset: string; amount: bigint; cost_basis_lamports: bigint }[];
-      destinyExtras.assets = assets.map((a) => ({ ...a, valueLamports: valueInLamports(a.asset as never, a.amount) }));
-      destinyExtras.treasuryValue = (destinyExtras.assets as { valueLamports: bigint }[]).reduce((s, a) => s + a.valueLamports, 0n);
+      const onChain = Boolean(token.chain && token.chain !== "SIMNET");
+      // on-chain coins: only SOL-denominated legs have a known lamport value here; USDC / JitoSOL are shown as amounts, never priced by the simnet oracle
+      destinyExtras.assets = assets.map((a) => ({ ...a, valueLamports: onChain ? (a.asset === "SOL" || a.asset === "RESERVE" ? a.amount : null) : valueInLamports(a.asset as never, a.amount) }));
+      destinyExtras.treasuryValue = (destinyExtras.assets as { valueLamports: bigint | null }[]).reduce((s, a) => s + (a.valueLamports ?? 0n), 0n);
+      destinyExtras.treasuryValuePartial = onChain;
       destinyExtras.params = JSON.parse(cfg.params_json);
     }
     if (token.destiny === "GRAVITY") {
@@ -744,7 +950,15 @@ export class Protocol {
       destinyExtras.lastBuyback = executions.find((e) => e.status === "COMPLETED") ?? null;
     }
     const realSol = token.status === "AMM" ? cfg.graduation_threshold : curve.real_sol;
+    const agent = token.chain && token.chain !== "SIMNET" ? {
+      chain: token.chain, mint: token.mint, vaultAuthority: token.vault_authority, bondingCurve: token.bonding_curve, metadataUri: token.metadata_uri,
+      state: st.state, lastError: st.last_error ?? null, failureCount: st.failure_count ?? 0n, nextRetryAt: st.next_retry_at ?? null,
+      pendingTx: Number((this.db.prepare("SELECT COUNT(*) c FROM chain_txs WHERE token_id=? AND status IN ('BUILT','SENT')").get(id) as { c: bigint }).c),
+      recentTx: this.db.prepare("SELECT purpose, status, signature, error, lamports, slot, updated_at FROM chain_txs WHERE token_id=? ORDER BY updated_at DESC LIMIT 8").all(id),
+      custodial: true,
+    } : null;
     return {
+      agent,
       token, config: cfg, state: st, curve, pool, launch, graduation,
       price, marketCap: marketCapLamports(price, token.circulating),
       volume24h: this.volume(id, 86_400_000), holders: this.holderCount(id),

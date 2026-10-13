@@ -26,7 +26,9 @@ export const viewport = { themeColor: "#0b0516" };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const preview = await getPreview();
   const s = getSettings();
-  const network = preview ? `${s.network || "mainnet"} preview` : "simnet";
+  const chain = process.env.FATE_CHAIN ?? "simnet";
+  const live = chain === "mainnet" ? "mainnet" : chain === "devnet" ? "devnet" : "simnet";
+  const network = preview ? `${s.network || "mainnet"} preview` : live;
   return (
     <html lang="en">
       <head>
@@ -46,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           )}
           <Nav network={network} />
           <main className="flex-1">{children}</main>
-          <Footer network={preview ? network : "simnet"} />
+          <Footer network={preview ? network : live} />
           <WalletModal />
           <Reveal />
         </WalletProvider>

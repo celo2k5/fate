@@ -70,7 +70,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
   const t = d.token, st = d.state, el = d.eligibility, cfg = d.config;
   const destiny: "PHOENIX" | "GRAVITY" | "ECHO" | "ORBIT" = t.destiny;
   const level = destiny === "GRAVITY" ? d.positions?.length ?? 0 : Number(st.executions);
-  const sats = destiny === "ORBIT" ? (d.assets as { asset: string; valueLamports: string }[]).filter((a) => a.asset !== "RESERVE").map((a) => ({ label: a.asset, share: Number(a.valueLamports) / Math.max(1, Number(d.treasuryValue)) })) : undefined;
+  const sats = destiny === "ORBIT" ? (d.assets as { asset: string; valueLamports: string | null }[]).filter((a) => a.asset !== "RESERVE" && a.valueLamports !== null).map((a) => ({ label: a.asset, share: Number(a.valueLamports) / Math.max(1, Number(d.treasuryValue)) })) : undefined;
   const stateLabel: Record<string, string> = { IDLE: "Idle — no fees yet", ACCUMULATING: "Accumulating", ELIGIBLE: "Eligible", EXECUTING: "Executing", COMPLETED: "Completed — accumulating again", FAILED: "Last attempt failed — will retry" };
 
   return (
@@ -101,7 +101,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_22rem]">
         <div className="grid gap-8">
           {/* destiny character — reflects real state */}
-          <section className="card p-4 sm:p-6 grid gap-6 md:grid-cols-[auto_1fr] items-center" data-testid="destiny-panel">
+          <section className="card card-metal p-4 sm:p-6 grid gap-6 md:grid-cols-[auto_1fr] items-center" data-testid="destiny-panel">
             <div className="relative w-full md:w-[300px]">
               <CharacterScene name={destiny.toLowerCase()} />
               <div className="absolute bottom-2 right-2 rounded-full p-1" style={{ background: "rgba(1,8,40,.85)", boxShadow: "inset 0 1px 1px rgba(255,255,255,.1)" }}><Character destiny={destiny} progress={el.progress} level={level} pulseKey={pulseKey} satellites={sats} size={96} /></div>
@@ -123,7 +123,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
                   <dt className="text-ivory-2">Distributed</dt><dd>{fmtSol(st.total_rewards_distributed, 3)} SOL</dd>
                   <dt className="text-ivory-2">Unclaimed escrow</dt><dd>{fmtSol(d.rewardsEscrow, 3)} SOL</dd>
                   <dt className="text-ivory-2">Min balance</dt><dd>{fmtTok(d.params.minBalance)} {t.ticker}</dd></>}
-                {destiny === "ORBIT" && <><dt className="text-ivory-2">Treasury value</dt><dd>{fmtSol(d.treasuryValue, 3)} SOL</dd>
+                {destiny === "ORBIT" && <><dt className="text-ivory-2">{d.treasuryValuePartial ? "Treasury (SOL legs)" : "Treasury value"}</dt><dd>{fmtSol(d.treasuryValue, 3)} SOL</dd>
                   <dt className="text-ivory-2">Deployed</dt><dd>{fmtSol(st.total_treasury_deployed, 3)} SOL</dd></>}
               </dl>
               <div className="meter mt-4"><i style={{ width: pct(el.progress) }} /></div>
@@ -144,7 +144,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
                 <tbody>{(d.assets as { asset: string; amount: string; cost_basis_lamports: string; valueLamports: string }[]).map((a) => (
                   <tr key={a.asset} className="border-t border-line"><td className="py-1.5">{a.asset === "RESERVE" ? "Retained reserve" : a.asset}</td><td>{(d.params.allocationBps[a.asset] / 100).toFixed(0)}%</td>
                     <td>{a.asset === "USDC" ? (Number(a.amount) / 1e6).toFixed(2) + " USDC" : a.asset === "LST" ? (Number(a.amount) / 1e9).toFixed(4) + " LST" : fmtSol(a.amount, 4) + " SOL"}</td>
-                    <td>{fmtSol(a.cost_basis_lamports, 4)} SOL</td><td>{fmtSol(a.valueLamports, 4)} SOL</td></tr>))}</tbody></table>
+                    <td>{fmtSol(a.cost_basis_lamports, 4)} SOL</td><td>{a.valueLamports === null ? <span className="text-ivory-3" title="No price source on-chain; held amount shown">not priced</span> : `${fmtSol(a.valueLamports, 4)} SOL`}</td></tr>))}</tbody></table>
               <p className="mt-3 small text-ivory-3">Valued at the simnet oracle. A treasury is not a promise of profit.</p>
             </section>
           )}
@@ -189,6 +189,8 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
           </section>
 
           {/* execution history */}
+          {d.agent && <AgentPanel agent={d.agent} />}
+
           <section className="card px-6 py-5">
             <h2 className="display text-[22px]">Execution history</h2>
             {d.executions.length === 0 ? <p className="mt-2 small text-ivory-3">No executions yet. The vault needs {fmtSol(cfg.execution_threshold, 2)} SOL.</p> : (
@@ -235,11 +237,58 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
         </div>
 
         <div className="grid gap-6 content-start lg:sticky lg:top-20">
-          <TradePanel tokenId={id} ticker={t.ticker} status={t.status} onTraded={reload} />
+          <TradePanel tokenId={id} ticker={t.ticker} status={t.status} onTraded={reload} onChain={Boolean(t.chain && t.chain !== "SIMNET")} />
           <LiveActivity initial={initialActivity} tokenId={id} compact />
           <p className="small text-ivory-3"><Link href={`/destinies/${destiny.toLowerCase()}`} className="link">How {d.meta.title} works</Link> · mint {shortAddr(id, 6)}</p>
         </div>
       </div>
     </div>
+  );
+}
+
+
+const EXPLORER = (kind: "tx" | "address", v: string, chain: string) => `https://explorer.solana.com/${kind}/${v}${chain === "MAINNET" ? "" : "?cluster=devnet"}`;
+const PURPOSE: Record<string, string> = {
+  launch: "Launch", collect_fees: "Collect creator fees", phoenix_buy_burn: "Buyback + burn", phoenix_pool_buy_burn: "Buyback + burn (PumpSwap)",
+  gravity_escrow_buy: "Escrow buy", gravity_pool_buy: "Pool buy", gravity_pool_deposit: "Liquidity deposit", echo_payout: "Echo payout",
+  orbit_swap_usdc: "Treasury swap → USDC", orbit_swap_lst: "Treasury swap → JitoSOL", protocol_share: "Protocol share", trade: "Trade",
+};
+
+/** On-chain agent status for devnet / mainnet coins: verified transactions only, with explorer links and the trust model stated plainly. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function AgentPanel({ agent }: { agent: any }) {
+  const txs = agent.recentTx as { purpose: string; status: string; signature: string | null; error: string | null; updated_at: string }[];
+  const tone = agent.state === "FAILED" ? "text-phoenix" : agent.state === "EXECUTING" ? "text-mint" : "text-ivory";
+  return (
+    <section className="card card-metal px-6 py-5" data-testid="agent-panel">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="display text-[22px]">On-chain agent</h2>
+        <span className="chip mono">{agent.chain}</span>
+      </div>
+      <dl className="mt-4 grid grid-cols-[10rem_1fr] gap-y-1.5 small">
+        <dt className="text-ivory-2">State</dt><dd className={tone}>{agent.state}{Number(agent.pendingTx) > 0 ? ` · ${agent.pendingTx} tx pending` : ""}</dd>
+        {agent.lastError && <><dt className="text-ivory-2">Last error</dt><dd className="text-phoenix break-words">{agent.lastError}</dd></>}
+        {agent.nextRetryAt && <><dt className="text-ivory-2">Next retry</dt><dd>{countdown(Number(agent.nextRetryAt))}</dd></>}
+        <dt className="text-ivory-2">Mint</dt><dd className="mono truncate"><a className="link" href={EXPLORER("address", agent.mint, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(agent.mint, 6)}</a></dd>
+        <dt className="text-ivory-2">Vault authority</dt><dd className="mono truncate"><a className="link" href={EXPLORER("address", agent.vaultAuthority, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(agent.vaultAuthority, 6)}</a></dd>
+      </dl>
+      <div className="mt-5">
+        <div className="eyebrow">Recent agent transactions</div>
+        {txs.length === 0 ? <p className="mt-2 small text-ivory-3">None yet. The agent acts once the vault reaches its threshold.</p> : (
+          <ul className="mt-2 grid gap-1.5 small">
+            {txs.map((t, i) => (
+              <li key={i} className="flex flex-wrap items-baseline gap-x-3">
+                <span className={t.status === "CONFIRMED" ? "text-mint" : t.status === "FAILED" || t.status === "EXPIRED" ? "text-phoenix" : "text-ivory-2"}>{t.status.toLowerCase()}</span>
+                <span>{PURPOSE[t.purpose] ?? t.purpose}</span>
+                {t.signature && <a className="link mono" href={EXPLORER("tx", t.signature, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(t.signature, 6)}</a>}
+                <span className="text-ivory-3 ml-auto">{ago(Number(t.updated_at))}</span>
+                {t.error && <span className="basis-full text-phoenix break-words">{t.error}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="mt-5 small text-ivory-3">Trust model: this coin&apos;s creator fees go to a vault key held by the FATE server. The destiny is enforced by server policy, and every spend is a signed, public transaction you can audit above. It is not a trustless on-chain program.</p>
+    </section>
   );
 }

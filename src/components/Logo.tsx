@@ -1,33 +1,22 @@
-/** FATE brand mark: an astrolabe coin whose pointer becomes the F. Inline so it inherits color and never flashes. */
-export function Mark({ size = 28, className = "", mono = false }: { size?: number; className?: string; mono?: boolean }) {
-  if (mono) return (
-    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" className={className} aria-hidden="true">
-      <circle cx="64" cy="64" r="60" strokeWidth="5" /><circle cx="64" cy="64" r="46" strokeWidth="2" strokeDasharray="2 5.2" opacity=".8" />
-      <path d="M64 10v10M64 108v10M10 64h10M108 64h10" strokeWidth="3" strokeLinecap="round" />
-      <path d="M46 92V36h36M46 62h28" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" /><circle cx="46" cy="92" r="6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-  return (
-    <svg width={size} height={size} viewBox="0 0 128 128" className={className} aria-hidden="true">
-      <defs>
-        <linearGradient id="fate-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#baffea" /><stop offset="1" stopColor="#4dffc3" /></linearGradient>
-        <radialGradient id="fate-face" cx="40%" cy="35%" r="70%"><stop offset="0" stopColor="#1d1036" /><stop offset="1" stopColor="#0b0516" /></radialGradient>
-      </defs>
-      <circle cx="64" cy="64" r="60" fill="url(#fate-face)" stroke="url(#fate-rim)" strokeWidth="5" />
-      <circle cx="64" cy="64" r="46" fill="none" stroke="#4dffc3" strokeWidth="2" strokeDasharray="2 5.2" opacity=".85" />
-      <path d="M64 10v10M64 108v10M10 64h10M108 64h10" stroke="#4dffc3" strokeWidth="3" strokeLinecap="round" />
-      <path d="M46 92V36h36M46 62h28" fill="none" stroke="#f2eeff" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M46 92V36h36M46 62h28" fill="none" stroke="#4dffc3" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="46" cy="92" r="6" fill="#4dffc3" />
-    </svg>
-  );
+/**
+ * FATE brand mark: the official metallic F-in-a-circle emblem (public/brand/emblem.png, cut to a transparent
+ * disc from the supplied artwork; geometry untouched). `mono` renders the traced flat version (favicon SVG) in
+ * currentColor-free form for places that need a tiny, crisp mark.
+ */
+export function Mark({ size = 28, className = "", mono = false, priority = false }: { size?: number; className?: string; mono?: boolean; priority?: boolean }) {
+  // Always the official raster (cut from the supplied artwork, never redrawn); srcset picks the sharpest size for the
+  // device pixel ratio. `mono` is kept for API compatibility and renders the same emblem.
+  void mono;
+  const base = size <= 32 ? 64 : size <= 64 ? 128 : size <= 128 ? 256 : 512;
+  const next = Math.min(base * 2, 512);
+  return <img src={`/brand/emblem-${base}.png`} srcSet={`/brand/emblem-${base}.png 1x, /brand/emblem-${next}.png 2x`} width={size} height={size} alt="" aria-hidden="true" draggable={false} loading={priority ? "eager" : "lazy"} decoding="async" className={`mark select-none ${className}`} style={{ width: size, height: size }} />;
 }
 
 export function Logo({ size = 28, className = "", wordmark = true }: { size?: number; className?: string; wordmark?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <Mark size={size} />
-      {wordmark && <span className="display" style={{ fontSize: size * 0.95, lineHeight: 1, letterSpacing: ".02em" }}>Fate</span>}
+      <Mark size={size} priority />
+      {wordmark && <span className="display wordmark" style={{ fontSize: size * 0.95, lineHeight: 1, letterSpacing: ".02em" }}>Fate</span>}
     </span>
   );
 }

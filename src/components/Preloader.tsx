@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Logo, Mark } from "./Logo";
+import { Mark } from "./Logo";
 
 /** First-visit loading moment: the sigil draws itself, then the curtain lifts. Shown once per session. */
 export function Preloader() {

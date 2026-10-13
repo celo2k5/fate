@@ -5,7 +5,7 @@ import { fmtSol, fmtTok, bpsPct, fmtPrice } from "@/lib/format";
 
 interface Quote { side: string; amountIn: string; amountOut: string; fee: string; destinyFee: string; priceImpactBps: number; minOut: string; spotAfter: number; venue: string }
 
-export function TradePanel({ tokenId, ticker, status, onTraded }: { tokenId: string; ticker: string; status: string; onTraded: () => void }) {
+export function TradePanel({ tokenId, ticker, status, onTraded, onChain = false }: { tokenId: string; ticker: string; status: string; onTraded: () => void; onChain?: boolean }) {
   const w = useWallet();
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [amount, setAmount] = useState("");
@@ -42,9 +42,25 @@ export function TradePanel({ tokenId, ticker, status, onTraded }: { tokenId: str
     setBusy(true); setResult(null);
     try {
       const signed = await w.signIntent({ kind: "trade", tokenId, side, amountIn: quote.amountIn, minOut: quote.minOut, slippageBps: slippage });
-      const r = await fetch(`/api/tokens/${tokenId}/trade`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      let j: { trade: { token_amount: string; sol_amount: string; fee_lamports: string } | null; error?: string; signature?: string };
+      if (onChain) {
+        // 1) the server builds the real pump.fun transaction, 2) the wallet signs it, 3) the server sends, confirms and indexes it
+        const prep = await fetch("/api/chain/trade", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
+        const pj = await prep.json();
+        if (!prep.ok) throw new Error(pj.error);
+        setResult({ ok: true, text: "Approve the transaction in your wallet…" });
+        const signedTx = await w.signTransaction(pj.tx);
+        setResult({ ok: true, text: "Sent. Waiting for confirmation…" });
+        const sub = await fetch("/api/chain/trade", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prepareId: pj.prepareId, signedTx }) });
+        j = await sub.json();
+        if (!sub.ok) throw new Error(j.error);
+        if (!j.trade) { setResult({ ok: true, text: `Confirmed ${j.signature?.slice(0, 12)}…; indexing.` }); await w.refresh(); onTraded(); return; }
+      } else {
+        const r = await fetch(`/api/tokens/${tokenId}/trade`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signed) });
+        j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+      }
+      if (!j.trade) throw new Error("no trade recorded");
       setResult({ ok: true, text: side === "BUY" ? `Bought ${fmtTok(j.trade.token_amount)} ${ticker} for ${fmtSol(j.trade.sol_amount, 4)} SOL` : `Sold ${fmtTok(j.trade.token_amount)} ${ticker} for ${fmtSol(BigInt(j.trade.sol_amount) - BigInt(j.trade.fee_lamports), 4)} SOL` });
       setAmount("");
       await w.refresh();

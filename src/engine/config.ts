@@ -60,7 +60,19 @@ export interface DestinyParams {
   allocationBps?: Record<OrbitAsset, number>;
 }
 
+/** Present when the coin exists on-chain (devnet / mainnet): the ledger mirrors the chain instead of simulating it. */
+export interface ChainLaunch {
+  chain: "DEVNET" | "MAINNET";
+  mint: string;                 // the token id
+  bondingCurve: string;
+  vaultAuthority: string;       // per-coin creator / vault authority (custodial, derived)
+  metadataUri: string;
+  totalSupply: bigint;
+  virtualSol: bigint; virtualTokens: bigint; realTokens: bigint;
+}
+
 export interface LaunchInput {
+  chain?: ChainLaunch;
   name: string;
   ticker: string;
   description: string;

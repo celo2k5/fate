@@ -17,6 +17,8 @@ interface WalletCtx {
   connect: (p: Provider) => Promise<void>;
   disconnect: () => Promise<void>;
   signIntent: (intent: Record<string, unknown>) => Promise<{ message: string; signature: string }>;
+  /** Sign a server-built Solana transaction (base64). Phantom: `signTransaction` (the user sees the real transaction); local wallet: ed25519 over the message. */
+  signTransaction: (txBase64: string) => Promise<string>;
   refresh: () => Promise<void>;
   faucet: () => Promise<void>;
   modalOpen: boolean;
@@ -33,6 +35,7 @@ type PhantomProvider = {
   connect(): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect(): Promise<void>;
   signMessage(msg: Uint8Array, enc: "utf8"): Promise<{ signature: Uint8Array }>;
+  signTransaction<T>(tx: T): Promise<T>;
 };
 const phantom = (): PhantomProvider | null => {
   if (typeof window === "undefined") return null;
@@ -129,15 +132,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return { message, signature };
   }, [address, provider, sign]);
 
+  const signTransaction = useCallback(async (txBase64: string) => {
+    if (!address || !provider) throw new Error("connect a wallet first");
+    // web3.js is loaded on demand: only the on-chain path needs it
+    const { VersionedTransaction } = await import("@solana/web3.js");
+    const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0)));
+    let signed: InstanceType<typeof VersionedTransaction>;
+    if (provider === "phantom") {
+      const ph = phantom();
+      if (!ph) throw new Error("Phantom not found");
+      signed = await ph.signTransaction(tx);
+    } else {
+      const kp = localKeypair();
+      const sig = nacl.sign.detached(tx.message.serialize(), kp.secretKey);
+      tx.addSignature(new (await import("@solana/web3.js")).PublicKey(address), sig);
+      signed = tx;
+    }
+    return btoa(String.fromCharCode(...signed.serialize()));
+  }, [address, provider]);
+
   const faucet = useCallback(async () => {
     setBusy(true);
     try { await post("/api/faucet", {}); await refresh(); } finally { setBusy(false); }
   }, [refresh]);
 
   const value = useMemo<WalletCtx>(() => ({
-    address, provider, portfolio, busy, error, hasPhantom, connect, disconnect, signIntent, refresh, faucet,
+    address, provider, portfolio, busy, error, hasPhantom, connect, disconnect, signIntent, signTransaction, refresh, faucet,
     modalOpen, openModal: () => setModalOpen(true), closeModal: () => setModalOpen(false),
-  }), [address, provider, portfolio, busy, error, hasPhantom, connect, disconnect, signIntent, refresh, faucet, modalOpen]);
+  }), [address, provider, portfolio, busy, error, hasPhantom, connect, disconnect, signIntent, signTransaction, refresh, faucet, modalOpen]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

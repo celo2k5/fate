@@ -163,7 +163,7 @@ export default async function Home() {
       <section id="closing" className="relative overflow-hidden min-h-[560px]">
         <Scene name="observatory" overlay="bg-gradient-to-b from-obsidian/60 via-obsidian/30 to-obsidian" />
         <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 py-28 sm:py-36 text-center">
-          <Mark size={72} className="mx-auto reveal" />
+          <div className="relative inline-block reveal"><span className="orbit-ring" aria-hidden="true" /><Mark size={96} className="mx-auto" /></div>
           <p className="display text-[clamp(2.2rem,5.4vw,4.4rem)] mt-6 reveal" style={{ transitionDelay: "90ms" }}>Choose your fate.<br />Fill the vault.<br />Live with it.</p>
           <div className="mt-8 reveal" style={{ transitionDelay: "180ms" }}><Link href="/launch" className="btn btn-primary">Launch a coin</Link></div>
         </div>

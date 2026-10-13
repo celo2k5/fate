@@ -2,7 +2,7 @@
   "name": "fate",
   "version": "0.1.0",
   "private": true,
-  "description": "FATE — every coin has a destiny. Solana token launchpad with permanent, protocol-enforced economic destinies.",
+  "description": "FATE \u2014 every coin has a destiny. Solana token launchpad with permanent, protocol-enforced economic destinies.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -14,9 +14,16 @@
     "e2e": "playwright test",
     "db:reset": "node -e \"require('fs').rmSync('data/fate.db',{force:true});console.log('db removed')\"",
     "seed": "npx tsx scripts/seed.ts",
-    "keeper": "npx tsx scripts/keeper.ts"
+    "keeper": "npx tsx scripts/keeper.ts",
+    "keeper:once": "npx tsx scripts/keeper.ts --once",
+    "verify:devnet": "npx tsx scripts/devnet-verify.ts",
+    "verify:mainnet-sim": "npx tsx scripts/verify-amm-sim.ts"
   },
   "dependencies": {
+    "@pump-fun/pump-sdk": "^4.0.0",
+    "@pump-fun/pump-swap-sdk": "1.20.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
     "better-sqlite3": "^13.0.3",
     "bs58": "^6.0.0",
     "next": "^15.5.27",
@@ -31,6 +38,7 @@
     "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
+    "@types/bn.js": "^5.2.0",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

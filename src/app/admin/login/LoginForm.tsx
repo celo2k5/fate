@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Logo, Mark } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
 
 export function LoginForm() {
   const [key, setKey] = useState("");
