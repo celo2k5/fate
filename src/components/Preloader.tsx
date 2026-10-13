@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sigil } from "./Sigil";
+import { Logo, Mark } from "./Logo";
 
 /** First-visit loading moment: the sigil draws itself, then the curtain lifts. Shown once per session. */
 export function Preloader() {
@@ -17,7 +17,7 @@ export function Preloader() {
   if (!show) return null;
   return (
     <div aria-hidden="true" className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-obsidian transition-opacity duration-700" style={{ opacity: done ? 0 : 1, pointerEvents: done ? "none" : "auto" }}>
-      <Sigil size={72} className="text-mint" draw />
+      <Mark size={84} />
       <div className="mt-6 overflow-hidden">
         <p className="voice text-[28px] rise rise-2">Every coin has a destiny.</p>
       </div>

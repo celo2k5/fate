@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Sigil } from "@/components/Sigil";
+import { Logo, Mark } from "@/components/Logo";
 
 export function LoginForm() {
   const [key, setKey] = useState("");
@@ -14,7 +14,7 @@ export function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center px-5">
       <form onSubmit={submit} className="card p-8 w-full max-w-sm rise">
-        <div className="flex items-center gap-2"><Sigil size={26} className="text-mint" /><span className="display text-[20px]">Fate</span><span className="chip">Admin</span></div>
+        <div className="flex items-center gap-2"><Logo size={26} /><span className="chip">Admin</span></div>
         <h1 className="display-md text-[26px] mt-6">Sign in</h1>
         <p className="text-sm text-dim mt-1">Enter the admin key from <span className="mono">FATE_ADMIN_KEY</span>.</p>
         <input type="password" className="field mt-5" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Admin key" autoFocus data-testid="admin-key" />

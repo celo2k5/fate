@@ -1,5 +1,8 @@
 # FATE — design notes
 
+> v4.1 — brand + divergence pass. Display face is now Unbounded (wide geometric, sentence-length lines) instead of a condensed poster face; the script accent is Permanent Marker set as a tape label on the accent color; microcopy is Space Grotesk, mono only for numbers/tables. Organization: logo outside the pill nav, centered hero poster, vault card featuring the coin render, horizontal snap deck for the four destinies, centered closing with the mark. Brand mark: astrolabe coin whose pointer becomes the F.
+
+
 > v4 — "Deep plum, mint & marker". Built on the *style* skillui extracted from reefy.cash in ultra mode (saturated dark base, condensed uppercase poster display, handwritten script stickers, mono uppercase microcopy, 2px-outlined cards, glass pill nav, gradient arrow buttons, full-bleed video loops) and re-authored with none of its parts: deep plum `#0B0516` instead of navy, mint `#4DFFC3` + magenta→violet instead of lime + purple, Big Shoulders Display instead of Anton, Caveat instead of Condiment, JetBrains Mono microcopy, Space Grotesk forms. Own composition (sigil inside the pill nav, stats strip + ticker in the hero, four story cards, crew cards with glow, board + activity, right-aligned closing) and own copy. Motion from v3 kept (preloader, route bar, reveal, parallax, count-ups, marquee).
 
 

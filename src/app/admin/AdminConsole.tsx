@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Sigil } from "@/components/Sigil";
+import { Logo, Mark } from "@/components/Logo";
 import { fmtSol, fmtTok, ago } from "@/lib/format";
 
 type Settings = Record<string, string | number | boolean>;
@@ -87,13 +87,13 @@ export function AdminConsole() {
     load();
   }
 
-  if (!s || !r) return <div className="min-h-screen flex items-center justify-center"><Sigil size={48} className="text-mint spin-slow" /></div>;
+  if (!s || !r) return <div className="min-h-screen flex items-center justify-center"><Mark size={56} className="spin-slow" /></div>;
 
   return (
     <div className="min-h-screen bg-obsidian">
       <header className="hairline border-b border-line sticky top-0 z-30 glass">
         <div className="mx-auto max-w-[1360px] px-5 sm:px-8 h-16 flex items-center gap-4">
-          <Sigil size={24} className="text-mint" /><span className="display text-[18px]">Fate</span><span className="chip">Admin</span>
+          <Logo size={24} /><span className="chip">Admin</span>
           <nav className="ml-6 flex gap-1">
             <button className={`tab ${tab === "readiness" ? "tab-on" : ""}`} onClick={() => setTab("readiness")}>Mainnet readiness</button>
             <button className={`tab ${tab === "ops" ? "tab-on" : ""}`} onClick={() => setTab("ops")}>Operations</button>

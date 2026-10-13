@@ -10,10 +10,18 @@ import { Footer } from "@/components/Footer";
 import { getSettings } from "@/lib/settings";
 import { getPreview } from "@/lib/preview";
 
+const SITE = process.env.SITE_URL ?? "https://fate-launchpad.onrender.com";
 export const metadata: Metadata = {
-  title: "FATE — every coin has a destiny",
-  description: "Launch a Solana token with an autonomous economic system. Trading fees fuel its destiny. The rules are chosen once and enforced by the protocol.",
+  metadataBase: new URL(SITE),
+  title: { default: "Fate — every coin has a destiny", template: "%s · Fate" },
+  description: "A Solana launchpad where trading fees fund one permanent, protocol-enforced destiny: buyback & burn, locked liquidity, holder rewards, or an autonomous treasury.",
+  applicationName: "Fate",
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/brand/icon-32.png", sizes: "32x32" }, { url: "/brand/icon-192.png", sizes: "192x192" }], apple: "/brand/icon-180.png", shortcut: "/favicon.ico" },
+  openGraph: { type: "website", siteName: "Fate", title: "Fate — every coin has a destiny", description: "Chosen once. Enforced forever. Trading fees fund one permanent destiny.", images: [{ url: "/brand/og.png", width: 1200, height: 630, alt: "Fate — every coin has a destiny" }] },
+  twitter: { card: "summary_large_image", title: "Fate — every coin has a destiny", description: "Chosen once. Enforced forever.", images: ["/brand/og.png"] },
+  manifest: "/manifest.webmanifest",
 };
+export const viewport = { themeColor: "#0b0516" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const preview = await getPreview();
@@ -24,7 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Permanent+Marker&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen flex flex-col">
         <WalletProvider>

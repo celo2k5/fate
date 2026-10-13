@@ -4,11 +4,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useWallet, short } from "@/lib/wallet";
 import { fmtSol } from "@/lib/format";
-import { Sigil } from "./Sigil";
+import { Logo } from "./Logo";
 
 const links = [
-  { href: "/", label: "Home" },
-  { href: "/destinies", label: "Destinies" },
+    { href: "/destinies", label: "Destinies" },
   { href: "/launch", label: "Launch" },
   { href: "/coins", label: "Coins" },
   { href: "/leaderboards", label: "Board" },
@@ -28,9 +27,8 @@ export function Nav({ network = "simnet" }: { network?: string }) {
     <header className="fixed inset-x-0 top-0 z-50 pointer-events-none">
       <div className={`mx-auto max-w-[1440px] px-4 sm:px-6 transition-all duration-500 ${scrolled ? "pt-2" : "pt-4"}`}>
         <div className="relative flex items-start">
-          <Link href="/" className="pointer-events-auto md:hidden flex items-center gap-2 h-12 pl-1" aria-label="Fate home"><Sigil size={26} className="text-mint" /><span className="display text-[22px]">Fate</span></Link>
-          <nav className={`glass pointer-events-auto rounded-full mx-auto hidden md:flex items-center gap-1 transition-all duration-500 ${scrolled ? "px-3 py-1.5" : "px-4 py-2.5"}`} aria-label="Primary">
-            <Link href="/" className="flex items-center gap-2 pl-2 pr-4 h-10" aria-label="Fate home"><Sigil size={24} className="text-mint" /><span className="display text-[22px]">Fate</span></Link>
+          <Link href="/" className="pointer-events-auto absolute left-0 top-0 flex items-center h-12 pl-1" aria-label="Fate home"><Logo size={30} /></Link>
+          <nav className={`glass pointer-events-auto rounded-full mx-auto hidden md:flex items-center gap-1 transition-all duration-500 ${scrolled ? "px-2 py-1.5" : "px-3 py-2.5"}`} aria-label="Primary">
             {links.map((l) => (
               <Link key={l.href} href={l.href} className={`tab !h-10 flex items-center ${active(l.href) ? "text-mint" : "text-ivory"}`}>{l.label}</Link>
             ))}

@@ -28,10 +28,10 @@ export function TokenCard({ t, featured = false }: { t: TokenListItem; featured?
             {t.image ? <img src={t.image} alt="" className="h-full w-full object-cover" /> : t.ticker.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2"><span className={`display truncate ${featured ? "text-[30px]" : "text-[24px]"}`}>{t.name}</span><span className="mono text-dim">{t.ticker}</span></div>
+            <div className="flex items-baseline gap-2"><span className={`display-md truncate ${featured ? "text-[24px]" : "text-[18px]"}`}>{t.name}</span><span className="mono text-dim">{t.ticker}</span></div>
             <div className="eyebrow mt-0.5">{destinyWord[t.destiny]} · {STATE[t.state] ?? t.state} · {t.status === "AMM" ? "AMM" : `curve ${pct(t.graduationProgress)}`}</div>
           </div>
-          <span className="voice text-[24px] ml-auto">{destinyWord[t.destiny]}</span>
+          <span className="voice text-[20px] ml-auto shrink-0">{destinyWord[t.destiny]}</span>
         </div>
         <dl className="mt-5 grid grid-cols-3 gap-3 mono num">
           <div><dt className="eyebrow">Market cap</dt><dd className="mt-0.5">{fmtSol(t.marketCap, 1)} SOL</dd></div>

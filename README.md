@@ -22,6 +22,10 @@ npm run seed                    # optional demo ledger: four coins with volume a
 
 Connect with **Phantom** (sign-message only; no transaction is ever sent) or the built-in **Fate simnet wallet** (a keypair kept in your browser). Use *Get 25 test SOL* on the wallet page.
 
+## Brand kit (`public/brand/`)
+
+Mark: an astrolabe coin whose pointer becomes the F (`mark.svg`, `mark-mono.svg`, inline `<Mark/>`/`<Logo/>` in `src/components/Logo.tsx`). Favicons: `favicon.svg`, `/favicon.ico`, `icon-16/32/48/180/192/512.png`, `manifest.webmanifest`. Social: `og.png` (1200×630, wired as OpenGraph/Twitter card), `banner-x.png` (1500×500 X header), `logo-dark.png`/`logo-transparent.png` lockups. Renders: `coin.jpg` (the Fate coin), `banner-bg.jpg`. Regenerate the rasters with `node scripts/brand.mjs`.
+
 ## Admin console
 
 `/admin` (key from `FATE_ADMIN_KEY`; dev default `fate-admin` with a console warning). Two tabs:
