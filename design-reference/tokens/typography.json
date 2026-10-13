@@ -1,0 +1,72 @@
+{
+  "families": [
+    "Anton",
+    "Condiment",
+    "SFMono-Regular"
+  ],
+  "scale": {
+    "heading-1": {
+      "fontFamily": "Anton",
+      "fontSize": "90px",
+      "fontWeight": "700",
+      "lineHeight": null,
+      "source": "css"
+    },
+    "heading-2": {
+      "fontFamily": "Anton",
+      "fontSize": "75px",
+      "fontWeight": "700",
+      "lineHeight": null,
+      "source": "css"
+    },
+    "heading-3": {
+      "fontFamily": "Anton",
+      "fontSize": "68px",
+      "fontWeight": "700",
+      "lineHeight": null,
+      "source": "css"
+    },
+    "body": {
+      "fontFamily": "Condiment",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "lineHeight": null,
+      "source": "css"
+    },
+    "caption": {
+      "fontFamily": "Condiment",
+      "fontSize": "13px",
+      "fontWeight": "400",
+      "lineHeight": null,
+      "source": "css"
+    },
+    "code": {
+      "fontFamily": "SFMono-Regular",
+      "fontSize": "14px",
+      "fontWeight": "400",
+      "lineHeight": null,
+      "source": "css"
+    }
+  },
+  "fontFaces": [
+    {
+      "family": "Anton",
+      "src": "https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm0K0.ttf",
+      "format": "truetype",
+      "weight": "400"
+    },
+    {
+      "family": "Condiment",
+      "src": "https://fonts.gstatic.com/s/condiment/v26/pONk1hggFNmwvXALyH6Sqw.ttf",
+      "format": "truetype",
+      "weight": "400"
+    }
+  ],
+  "rules": {
+    "maxSizesPerScreen": 4,
+    "headingWeightRange": "600-700",
+    "bodyWeight": 400,
+    "lineHeightBody": 1.5,
+    "lineHeightHeading": 1.2
+  }
+}

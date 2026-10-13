@@ -1,0 +1,43 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "core": {
+    "surface": {
+      "value": "#eff4ff",
+      "role": "surface"
+    },
+    "background": {
+      "value": "#ffffff",
+      "role": "background",
+      "name": "tw-ring-offset-color"
+    },
+    "text-primary": {
+      "value": "#010828",
+      "role": "text-primary"
+    },
+    "text-muted": {
+      "value": "#9ca3af",
+      "role": "text-muted"
+    }
+  },
+  "status": {
+    "success": {
+      "value": "#6fff00",
+      "role": "success"
+    }
+  },
+  "extended": {
+    "color-e5e7eb": {
+      "value": "#e5e7eb",
+      "role": "unknown"
+    },
+    "tw-ring-color": {
+      "value": "#3b82f6",
+      "role": "info",
+      "name": "tw-ring-color"
+    }
+  },
+  "meta": {
+    "theme": "light",
+    "extracted": "2026-10-12"
+  }
+}
