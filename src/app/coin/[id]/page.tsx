@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const t = getProtocol().getToken(id);
-  return { title: t ? `${t.name} (${t.ticker}) — ${t.destiny} · Fate` : "Coin · Fate" };
+  return { title: t ? `${t.name} (${t.ticker}) — ${t.destiny}` : "Coin" };
 }
 
 export default async function CoinPage({ params }: { params: Promise<{ id: string }> }) {
