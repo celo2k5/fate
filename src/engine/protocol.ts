@@ -921,6 +921,8 @@ export class Protocol {
     const el = this.eligibility(id);
     const executions = this.db.prepare("SELECT * FROM destiny_executions WHERE token_id=? ORDER BY seq DESC LIMIT 50").all(id) as Row[];
     const trades = this.db.prepare("SELECT * FROM trades WHERE token_id=? ORDER BY created_at DESC LIMIT 40").all(id) as Row[];
+    // full price history for the chart (oldest first): every trade's execution price, size and side; capped for payload size
+    const priceHistory = this.db.prepare("SELECT created_at t, price_lamports_per_token p, side s, sol_amount v, is_protocol x FROM (SELECT rowid AS rid, * FROM trades WHERE token_id=? ORDER BY created_at DESC, rowid DESC LIMIT 2000) ORDER BY created_at ASC, rid ASC").all(id) as Row[];
     const launch = this.db.prepare("SELECT * FROM launches WHERE token_id=?").get(id) as Row;
     const graduation = this.db.prepare("SELECT * FROM graduations WHERE token_id=?").get(id) as Row | undefined;
     const vaultHistory = this.db.prepare("SELECT balance, created_at FROM vault_snapshots WHERE token_id=? ORDER BY id DESC LIMIT 120").all(id) as Row[];
@@ -958,7 +960,7 @@ export class Protocol {
       custodial: true,
     } : null;
     return {
-      agent,
+      agent, priceHistory,
       token, config: cfg, state: st, curve, pool, launch, graduation,
       price, marketCap: marketCapLamports(price, token.circulating),
       volume24h: this.volume(id, 86_400_000), holders: this.holderCount(id),

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Character } from "./Character";
 import { CharacterScene } from "./Scene";
 import { TradePanel } from "./TradePanel";
+import { PriceChart } from "./PriceChart";
 import { LiveActivity } from "./LiveActivity";
 import { useStream, type StreamEvent } from "@/lib/useStream";
 import { useWallet } from "@/lib/wallet";
@@ -98,8 +99,11 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
         </dl>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_22rem]">
-        <div className="grid gap-8">
+      <div className="mt-8 grid gap-8 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid gap-8 min-w-0">
+          <PriceChart history={d.priceHistory ?? []} ticker={t.ticker}
+            marks={(d.executions as { status: string; completed_at: string | null; created_at: string }[]).filter((e) => e.status === "COMPLETED").map((e) => ({ t: Number(e.completed_at ?? e.created_at), label: MARK_LABEL[destiny] ?? "Executed" }))} />
+
           {/* destiny character — reflects real state */}
           <section className="card card-metal p-4 sm:p-6 grid gap-6 md:grid-cols-[auto_1fr] items-center" data-testid="destiny-panel">
             <div className="relative w-full md:w-[300px]">
@@ -246,6 +250,8 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
   );
 }
 
+
+const MARK_LABEL: Record<string, string> = { PHOENIX: "Buyback + burn", GRAVITY: "Liquidity added", ECHO: "Rewards settled", ORBIT: "Treasury cycle" };
 
 const EXPLORER = (kind: "tx" | "address", v: string, chain: string) => `https://explorer.solana.com/${kind}/${v}${chain === "MAINNET" ? "" : "?cluster=devnet"}`;
 const PURPOSE: Record<string, string> = {
