@@ -2,6 +2,7 @@ import { ok, fail } from "@/lib/api";
 import { isAdmin } from "@/lib/admin-auth";
 import { getProtocol, keeperStatus } from "@/engine/keeper";
 import { EngineError } from "@/engine/units";
+import { seedDemo } from "@/engine/seed";
 export const dynamic = "force-dynamic";
 export async function GET() {
   try {
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     const { action, tokenId } = await req.json();
     const p = getProtocol();
     if (action === "crank") return ok(tokenId ? p.crank(String(tokenId)) : p.crankAll());
+    if (action === "seed") return ok({ seeded: seedDemo(p) });
     if (action === "snapshot") { for (const r of p.db.prepare("SELECT id FROM tokens").all() as { id: string }[]) p.snapshotMarket(r.id); return ok({ ok: true }); }
     throw new EngineError("BAD_ACTION", "unknown action");
   } catch (e) { return fail(e); }

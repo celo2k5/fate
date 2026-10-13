@@ -83,7 +83,7 @@ export function AdminConsole() {
     setMsg(null);
     const res = await fetch("/api/admin/ops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, tokenId }) });
     const j = await res.json();
-    setMsg(Array.isArray(j) ? `Cranked ${j.length} coins, ${j.filter((x: { executed: boolean }) => x.executed).length} executed.` : j.executed ? `Executed ${j.executionId}.` : `Not executed: ${j.reason ?? j.error ?? "see state"}.`);
+    setMsg(j.seeded ? `Seeded ${j.seeded.length} coins (${j.seeded.filter((x: { executed: boolean }) => x.executed).length} executed).` : Array.isArray(j) ? `Cranked ${j.length} coins, ${j.filter((x: { executed: boolean }) => x.executed).length} executed.` : j.executed ? `Executed ${j.executionId}.` : `Not executed: ${j.reason ?? j.error ?? "see state"}.`);
     load();
   }
 
@@ -193,6 +193,7 @@ export function AdminConsole() {
             <div className="flex flex-wrap gap-2">
               <button className="btn" onClick={() => op("crank")}>Crank all</button>
               <button className="btn btn-ghost" onClick={() => op("snapshot")}>Snapshot markets</button>
+              <button className="btn btn-ghost" onClick={() => op("seed")} data-testid="seed">Seed demo ledger</button>
               {msg && <span className="self-center text-sm text-dim">{msg}</span>}
             </div>
             <div className="card p-6 overflow-x-auto">
