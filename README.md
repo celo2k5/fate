@@ -135,7 +135,7 @@ set to a program PDA. The UI states the custodial model on every on-chain coin.
   settlement, replay idempotency, Jupiter bound violations, the mainnet breaker). E2E: `npm run e2e` (Playwright, simnet).
 - `npm run verify:devnet` (`scripts/devnet-verify.ts`). Tier 1: decodes pump.fun Global/FeeConfig on devnet. Tier 2: the real program
   simulates create_v2 (creator = vault key), buy, and the atomic Phoenix buy+burn on a live devnet curve. Tier 3: signed launch → buy → sell →
-  index → fee collection → Phoenix with the burn checked against mint supply. Needs a funded `FATE_DEVNET_KEY`.
+  index → fee collection → Phoenix with the burn checked against mint supply. **Passed on devnet 2026-10-13** (signatures in docs/VERIFICATION.md).
 - `npm run verify:mainnet-sim` (`scripts/verify-amm-sim.ts`): mainnet **simulation only** (nothing signed or sent) against a live graduated pump.fun pool: AMM event
   decoding, Phoenix pool buy+burn, Gravity pool buy+deposit (LP minted), creator-fee sweep+collect, Orbit's Jupiter USDC and JitoSOL swaps.
 

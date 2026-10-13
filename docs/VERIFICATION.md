@@ -9,14 +9,14 @@ server derives per mint; destiny agents spend it under server policy). Environme
 |---|---|---|---|---|
 | Branding (official F emblem, favicons, OG/banner, tokens) | done | `public/brand/*`, `src/components/Logo.tsx`, `src/app/globals.css`, `src/app/layout.tsx` | local + live | desktop/mobile screenshots of 6 pages; traced SVG removed (did not match the official geometry); live `/brand/emblem-64.png` 200 |
 | Wallet auth (nonce + ed25519 intent signatures, sessions) | done (pre-existing) | `src/lib/auth.ts`, `src/app/api/auth/*` | mock + local | vitest; Playwright journeys sign every action |
-| Launch on pump.fun (`create_v2`, creator = vault key, user signs) | done | `src/app/api/chain/launch/route.ts`, `src/chain/pump.ts`, `src/chain/config.ts` | devnet sim | `npm run verify:devnet` tier 2: `create_v2` simulated OK (≈101k CU) with creator = derived vault key. Signed tx is byte-compared to the built one; the coin is recorded only after its CreateEvent is decoded |
+| Launch on pump.fun (`create_v2`, creator = vault key, user signs) | done | `src/app/api/chain/launch/route.ts`, `src/chain/pump.ts`, `src/chain/config.ts` | **devnet signed** | `npm run verify:devnet` tier 2: `create_v2` simulated OK (≈101k CU) with creator = derived vault key. Signed tx is byte-compared to the built one; the coin is recorded only after its CreateEvent is decoded |
 | Metadata (Pinata IPFS or self-hosted) | done | `src/chain/metadata.ts`, `src/app/api/metadata/*` | local | IPFS required on mainnet by the breaker |
 | Trade path (user-signed buy/sell on the curve) | done | `src/app/api/chain/trade/route.ts`, `src/components/TradePanel.tsx` | devnet sim | buy simulated OK on a live devnet curve (≈101k CU) |
 | Trade indexing (curve TradeEvent, PumpSwap Buy/Sell) | done | `src/chain/pump.ts` (`newTrades`, `newPoolTrades`, decoders), `src/chain/agents.ts#indexToken` | devnet + mainnet (read) | AMM events decoded from live mainnet transactions; idempotent by `signature#index` (unit test). A bug was fixed where Anchor camelCases IDL event names, which made AMM decoding silently return nothing |
 | Fee accounting (creator fee → 80 % destiny / 20 % protocol) | done | `Protocol.recordChainTrade` | mock | vitest `chain-mirror`, `chain-agents` |
 | Fee collection (+ PumpSwap `sweep_creator_fee`) | done | `src/chain/agents.ts#collectFees` | mainnet sim | sweep + collect simulated OK for a real graduated pool's coin creator (≈72k CU) |
 | Graduation (observed, not simulated) | done | `syncVenue`, `Protocol.recordChainGraduation` | mock | tests: no simulated graduation for chain coins; the observed graduation is idempotent; curve inventory moves to the pool; reconciliation stays clean |
-| Agent: **Phoenix** (buy + burn, curve or PumpSwap) | done | `executePhoenix`, `amm.buildPoolBuybackBurnTx` | devnet sim + mainnet sim | curve buy+burn simulated OK on devnet (Burn instruction ran); PumpSwap buy+burn simulated OK on mainnet via FATE's builder; the burn is checked against the mint-supply delta at runtime |
+| Agent: **Phoenix** (buy + burn, curve or PumpSwap) | done | `executePhoenix`, `amm.buildPoolBuybackBurnTx` | **devnet signed** + mainnet sim | curve buy+burn simulated OK on devnet (Burn instruction ran); PumpSwap buy+burn simulated OK on mainnet via FATE's builder; the burn is checked against the mint-supply delta at runtime |
 | Agent: **Gravity** (escrow → PumpSwap deposit, LP kept) | done | `executeGravity`, `amm.buildPoolDepositTx` | mainnet sim | pool buy + deposit simulated OK, LP minted (≈160k CU) |
 | Agent: **Echo** (snapshot, forfeits, claim once) | done | `executeEcho`, `payClaim`, claim route | mock | vitest: sellers in an epoch forfeit; claims are reserved once per wallet; payout tx is idempotent. Known limit: transfers out and back within an epoch are not caught |
 | Agent: **Orbit** (Jupiter USDC/JitoSOL legs) | done (mainnet only) | `executeOrbit`, `src/chain/jupiter.ts` | mainnet sim | Jupiter quotes + swap txs simulated OK for both legs. On devnet it refuses with VENUE_UNAVAILABLE (Jupiter has no devnet). Treasury is no longer priced by the simnet oracle on chain coins |
@@ -36,10 +36,19 @@ server derives per mint; destiny agents spend it under server policy). Environme
 - `npm run verify:devnet` (no funded key): tier 1 + tier 2 passed (output in this session's log).
 - `npm run verify:mainnet-sim`: all 8 checks passed (simulation only; nothing signed by a real key or sent).
 
+## Devnet signed round trip (2026-10-13, `npm run verify:devnet`, tier 3 reached)
+Real transactions on Solana devnet against the real pump.fun program, test key `AE4Su…F94b`:
+- create_v2, creator = derived vault key: `5wJGG7R2CLn2fJmKGTekw5paZMZ7jMmAyZdDpaTxKSpGUDgN89apm3YEh9wkxNGcjHdKEWD5CYsbVe3Jqs3Ve8tx`
+- buy 2.4 SOL: `2ke2kTfufCYAEEwWa4uaNni1Foh4CQghaWwLqwt1y8prD2bu3Tw6LAdkTpEk5hLrveR7zc5GuCTbbxt31mY1UPQU`. TradeEvent indexed; the on-chain
+  creator vault reads 7,111,112 lamports (0.30 % = pump.fun's tier-0 creator fee) and the destiny mirror reads exactly 80 % of it.
+- sell all: `47qFi7KQbfFQbKkAfNNXQxcPj4NsfTp57weWRsioUfGCcsD34kwqqqZoq2Fn7UydULudkCMrJsd68z9hKvXesEEd`
+- **Phoenix agent** (collect creator fees → curve buy → burn, one tx): `4Y3DoP3bSXunurPt4nfzQwmJvSF7UeuUA26MMPFpcVqPYfmydXVCw8g98FGxfGZS8ec4jg1joSwBZkDuJ6iN1LfL`.
+  Burned 191,461,083,298 base units; the mint supply fell by exactly that. Ledger reconciliation: ok.
+- Conditions of this run: the minimum execution threshold was lowered to 0.01 SOL **in the verification process only** (in-memory ledger),
+  because the protocol minimum (0.25 SOL) needs about 100 SOL of volume. The vault key was given a 0.02 SOL operating float for its own
+  transaction fees (in production the keeper provides this until collected fees cover it).
+
 ## Not yet verified
-- **Devnet signed round trip** (launch → buy → sell → index → collect → Phoenix burn vs mint supply). It needs devnet SOL in
-  `AE4SuUADpVWcANW1jVko2XHZvTeA6rv58msMxDUEF94b`; the public airdrop is rate-limited from the build machine, and the web faucet has a captcha.
-  Run: `FATE_DEVNET_KEY=<key> npm run verify:devnet`.
 - **Gravity / Phoenix post-graduation and Orbit with real signatures:** no FATE coin has graduated, and Orbit is mainnet-only. Both are
   verified by mainnet simulation only.
 - **Mainnet:** not run, by design. Needs your authorization, a funded keeper, durable hosting, and ideally an external audit.

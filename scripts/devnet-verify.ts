@@ -79,6 +79,11 @@ async function main() {
     return finish(report);
   }
   console.log("tier 3: signed round-trip");
+  // verification-only: lower the protocol's minimum execution threshold in THIS process (in-memory ledger) so a few SOL of
+  // devnet volume can trigger a real buyback. Nothing persistent or deployed changes.
+  const { PROTOCOL } = await import("../src/engine/config");
+  const minSol = Number(process.env.FATE_VERIFY_THRESHOLD_SOL ?? "0.01");
+  (PROTOCOL.bounds.executionThreshold as { min: bigint }).min = BigInt(Math.round(minSol * LAMPORTS_PER_SOL));
   const db = openDatabase(":memory:");
   const p = new Protocol(db);
   const L = new TxLedger(db);
@@ -90,11 +95,21 @@ async function main() {
   if (!ev || !ev.creator.equals(authority.publicKey)) throw new Error("CreateEvent missing or creator mismatch");
   check(`coin created on devnet: ${createSig} (creator = vault authority)`);
   const cv = await pump.fetchCurve(mintKp.publicKey);
-  const token = p.launch({ chain: { chain: "DEVNET", mint: cv.mint, bondingCurve: cv.bondingCurve, vaultAuthority: authority.publicKey.toBase58(), metadataUri: "verify", totalSupply: cv.totalSupply, virtualSol: cv.virtualSol, virtualTokens: cv.virtualTokens, realTokens: cv.realTokens }, name: "Fate Verify", ticker: "FVER", description: "", destiny: "PHOENIX", creator: payer.publicKey.toBase58(), executionThreshold: 250_000n, cooldownMs: 5_000, maxSlippageBps: 1500, signature: createSig, signedMessage: "verify" });
+  const token = p.launch({ chain: { chain: "DEVNET", mint: cv.mint, bondingCurve: cv.bondingCurve, vaultAuthority: authority.publicKey.toBase58(), metadataUri: "verify", totalSupply: cv.totalSupply, virtualSol: cv.virtualSol, virtualTokens: cv.virtualTokens, realTokens: cv.realTokens }, name: "Fate Verify", ticker: "FVER", description: "", destiny: "PHOENIX", creator: payer.publicKey.toBase58(), executionThreshold: BigInt(Math.round(minSol * LAMPORTS_PER_SOL)), cooldownMs: 5_000, maxSlippageBps: 1500, signature: createSig, signedMessage: "verify" });
   check(`ledger mirror created: ${token.id}`);
 
-  // buy 0.05 SOL, then sell half
-  const buy = await pump.buildBuyTx({ user: payer.publicKey, mint: mintKp.publicKey, lamports: 50_000_000n, slippageBps: 500 });
+  // the vault authority pays its own fees and keeps a rent headroom: give it a small operating float (what a keeper provides)
+  const { SystemProgram, TransactionMessage } = await import("@solana/web3.js");
+  {
+    const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
+    const msg = new TransactionMessage({ payerKey: payer.publicKey, recentBlockhash: blockhash, instructions: [SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: authority.publicKey, lamports: 20_000_000 })] }).compileToV0Message();
+    const ftx = new VersionedTransaction(msg); ftx.sign([payer]);
+    await sendAndConfirm(L, L.begin("float", mintKp.publicKey.toBase58(), token.id, blockhash, lastValidBlockHeight, 20_000_000n), ftx);
+    check("vault authority given a 0.02 SOL operating float for its own transaction fees");
+  }
+  // enough volume that the creator fee clears the agent's 0.01 SOL minimum buyback: buy, then sell everything back
+  const BUY = BigInt(Math.round(Number(process.env.FATE_VERIFY_BUY_SOL ?? "2.4") * LAMPORTS_PER_SOL));
+  const buy = await pump.buildBuyTx({ user: payer.publicKey, mint: mintKp.publicKey, lamports: BUY, slippageBps: 500 });
   buy.tx.sign([payer]);
   const buySig = (await sendAndConfirm(L, L.begin("trade", "buy1", token.id, buy.blockhash, buy.lastValidBlockHeight), buy.tx)).signature;
   check(`buy confirmed: ${buySig}`);
@@ -103,7 +118,9 @@ async function main() {
   check(`indexed ${indexed} trade(s); destiny vault mirror = ${vault} lamports (80% of the on-chain creator fee)`);
   const onChainVault = await pump.creatorVaultBalance(authority.publicKey);
   check(`on-chain creator vault for the authority = ${onChainVault} lamports`);
-  const sell = await pump.buildSellTx({ user: payer.publicKey, mint: mintKp.publicKey, tokens: buy.expectedTokens / 2n, slippageBps: 500 });
+  const { getAccount, getAssociatedTokenAddressSync } = await import("@solana/spl-token");
+  const held = (await getAccount(c, getAssociatedTokenAddressSync(mintKp.publicKey, payer.publicKey, false, TOKEN_2022_PROGRAM_ID), "confirmed", TOKEN_2022_PROGRAM_ID)).amount;
+  const sell = await pump.buildSellTx({ user: payer.publicKey, mint: mintKp.publicKey, tokens: held, slippageBps: 500 });
   sell.tx.sign([payer]);
   const sellSig = (await sendAndConfirm(L, L.begin("trade", "sell1", token.id, sell.blockhash, sell.lastValidBlockHeight), sell.tx)).signature;
   check(`sell confirmed: ${sellSig}`);
