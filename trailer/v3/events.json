@@ -1,0 +1,72 @@
+[
+ {
+  "t": 2.45,
+  "sfx": "audio/sfx/whoosh.wav",
+  "gain": -14
+ },
+ {
+  "t": 7.6,
+  "sfx": "audio/sfx/click.wav",
+  "gain": -10
+ },
+ {
+  "t": 11.4,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -20
+ },
+ {
+  "t": 11.63,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -20
+ },
+ {
+  "t": 11.87,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -19
+ },
+ {
+  "t": 12.13,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -19
+ },
+ {
+  "t": 12.37,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -18
+ },
+ {
+  "t": 12.63,
+  "sfx": "audio/sfx/tick.wav",
+  "gain": -18
+ },
+ {
+  "t": 13.41,
+  "sfx": "audio/sfx/impact.wav",
+  "gain": -4
+ },
+ {
+  "t": 15.62,
+  "sfx": "audio/sfx/whoosh.wav",
+  "gain": -18
+ },
+ {
+  "t": 16.88,
+  "sfx": "audio/sfx/whoosh.wav",
+  "gain": -18
+ },
+ {
+  "t": 17.88,
+  "sfx": "audio/sfx/whoosh.wav",
+  "gain": -18
+ },
+ {
+  "t": 26.8,
+  "sfx": "audio/sfx/low.wav",
+  "gain": -6
+ },
+ {
+  "t": 29.4,
+  "sfx": "audio/sfx/low.wav",
+  "gain": -13
+ }
+]

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FATE — The ring is the vault</title>
+<meta name="viewport" content="width=1920, height=1080">
+<link rel="stylesheet" href="./runtime/fonts.css">
+<style>
+/* ACCENT = "executed / on" (mint #4dffc3). Destiny colours belong to their destinies only. */
+@font-face { font-family: "Unbounded"; src: url("./brand/fonts/unbounded-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Space Grotesk"; src: url("./brand/fonts/space-grotesk-400.woff2") format("woff2"); font-weight: 400; }
+:root { --ink: #f2eeff; --ground: #0b0516; --mint: #4dffc3; --phoenix: #ff6a2b; --gravity: #5b8cff; --echo: #c084fc; --orbit: #3de3a5; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+#main { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--ground); color: var(--ink); font-family: "Space Grotesk", sans-serif; }
+.scene { position: absolute; inset: 0; overflow: hidden; }
+.cam { position: absolute; inset: 0; }
+video { position: absolute; display: block; }
+.cover { left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+.plate { filter: brightness(.62) saturate(1.1); }
+.blurbed { left: -60px; top: -60px; width: 2040px; height: 1200px; object-fit: cover; filter: blur(34px) brightness(.42) saturate(1.25); }
+.hero { top: 0; width: 1080px; height: 1080px; -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent 100%); mask-image: radial-gradient(closest-side, #000 70%, transparent 100%); }
+.word { font-family: "Unbounded"; font-weight: 800; text-transform: uppercase; letter-spacing: -.02em; line-height: 1; white-space: pre; position: absolute; left: 0; width: 1920px; text-align: center; text-shadow: 0 8px 40px rgba(11,5,22,.85); }
+.ui { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+.ring { position: absolute; overflow: visible; }
+.ring circle { fill: none; }
+.ring .track { stroke: rgba(242,238,255,.16); }
+.ring { filter: drop-shadow(0 0 14px var(--rc, rgba(255,255,255,.4))); }
+.ring .arc { stroke-linecap: round; stroke-dasharray: var(--len); stroke-dashoffset: calc(var(--len) * (1 - var(--p, 0))); }
+.flare { position: absolute; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; }
+#cursor { position: absolute; left: 0; top: 0; overflow: visible; }
+</style>
+</head>
+<body>
+<div id="main">
+
+  <!-- B1 HOOK 0-90: the emblem arrives in the garden; the camera dives into its ring -->
+  <section id="s1" class="scene">
+    <div id="cam1" class="cam">
+      <video class="cover plate" src="./media/garden.webm" data-start="0" muted playsinline preload="auto"></video>
+      <div id="glow1" class="flare" style="left:610px;top:170px;width:700px;height:700px;background:radial-gradient(closest-side, rgba(165,107,255,.55), rgba(131,231,255,.18) 55%, transparent 75%);"></div>
+      <img id="emb1" src="./media/emblem.png" style="position:absolute;left:700px;top:260px;width:520px;height:520px" alt="">
+    </div>
+  </section>
+
+  <!-- B2 TURN 90-207: the coin, still travelling out of the dive -->
+  <section id="s2" class="scene" style="visibility:hidden">
+    <div id="cam2" class="cam">
+      <video class="cover" src="./media/coin.webm" data-start="3" muted playsinline preload="auto" style="filter:brightness(.8)"></video>
+    </div>
+    <div id="w2" class="word" style="top:820px;font-size:104px">an economy.</div>
+  </section>
+
+  <!-- B3 PROOF 207-262: the real destiny picker; the cursor chooses Phoenix -->
+  <section id="s3" class="scene" style="visibility:hidden">
+    <div id="cam3" class="cam">
+      <img id="pickA" class="ui" src="./ui/pick2.png" alt="">
+      <img id="pickB" class="ui" src="./ui/pick2-phoenix.png" alt="" style="visibility:hidden">
+      <div id="hit" style="position:absolute;left:480px;top:322px;width:228px;height:403px"></div>
+    </div>
+    <svg id="cursor" width="32" height="46" viewBox="0 0 32 46"><path d="M0 0 L0 38 L10 29 L17 45 L25 41 L18 26 L31 26 Z" fill="#0b0516" stroke="#f2eeff" stroke-width="3" stroke-linejoin="round" paint-order="stroke"/></svg>
+  </section>
+
+  <!-- B3b PROOF 262-336: the real review card -->
+  <section id="s3b" class="scene" style="visibility:hidden">
+    <div id="cam3b" class="cam"><img class="ui" src="./ui/review2.png" alt=""></div>
+  </section>
+
+  <!-- B4 HERO 336-430: fees fill the ring around the Phoenix; it snaps shut -->
+  <section id="s4" class="scene" style="visibility:hidden">
+    <div id="cam4" class="cam">
+      <video class="blurbed" src="./media/phoenix.webm" data-start="11.2" muted playsinline preload="auto"></video>
+      <video class="hero" src="./media/phoenix.webm" data-start="11.2" muted playsinline preload="auto" style="left:420px"></video>
+      <div id="flare4" class="flare" style="left:510px;top:150px;width:900px;height:900px;background:radial-gradient(closest-side, rgba(255,170,90,.95), rgba(255,106,43,.45) 40%, transparent 72%);opacity:0"></div>
+      <svg id="ring4" class="ring" style="left:600px;top:240px;--rc:rgba(255,120,50,.85)" width="720" height="720" viewBox="0 0 720 720">
+        <circle class="track" cx="360" cy="360" r="340" stroke-width="12"/>
+        <circle id="arc4" class="arc" cx="360" cy="360" r="340" stroke="url(#g4)" stroke-width="24" transform="rotate(-90 360 360)" style="--len:2136.3px"/>
+        <defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd08a"/><stop offset=".5" stop-color="#ff6a2b"/><stop offset="1" stop-color="#c8102e"/></linearGradient></defs>
+      </svg>
+    </div>
+  </section>
+
+  <!-- B4b PROOF 430-558: the real execution-history row, read by the camera -->
+  <section id="s4b" class="scene" style="visibility:hidden">
+    <div id="cam4b" class="cam"><img class="ui" src="./ui/coin2.png" alt=""></div>
+  </section>
+
+  <!-- B5 four destinies 558-804: the ring travels, in each destiny's colour -->
+  <section id="s5a" class="scene" style="visibility:hidden">
+    <video class="blurbed" src="./media/phoenix.webm" data-start="18.6" data-media-start="2" muted playsinline preload="auto"></video>
+    <div id="cam5a" class="cam">
+      <video class="hero" src="./media/phoenix.webm" data-start="18.6" data-media-start="2" muted playsinline preload="auto" style="left:180px"></video>
+      <svg id="ring5a" class="ring" style="--rc:rgba(255,106,43,.8);left:380px;top:254px" width="680" height="680" viewBox="0 0 680 680"><circle class="track" cx="340" cy="340" r="320" stroke-width="8"/><circle id="arc5a" class="arc" cx="340" cy="340" r="320" stroke="#ff6a2b" stroke-width="18" transform="rotate(-90 340 340)" style="--len:2010.6px"/></svg>
+    </div>
+    <div id="w5a" class="word" style="top:440px;left:520px;font-size:150px;color:var(--phoenix)">burns.</div>
+  </section>
+  <section id="s5b" class="scene" style="visibility:hidden">
+    <video class="blurbed" src="./media/gravity.webm" data-start="20.4" muted playsinline preload="auto"></video>
+    <div id="cam5b" class="cam">
+      <video class="hero" src="./media/gravity.webm" data-start="20.4" muted playsinline preload="auto" style="left:740px"></video>
+      <svg id="ring5b" class="ring" style="--rc:rgba(91,140,255,.8);left:900px;top:214px" width="760" height="760" viewBox="0 0 760 760"><circle class="track" cx="380" cy="380" r="360" stroke-width="8"/><circle id="arc5b" class="arc" cx="380" cy="380" r="360" stroke="#5b8cff" stroke-width="18" transform="rotate(-90 380 380)" style="--len:2261.9px"/></svg>
+    </div>
+    <div id="w5b" class="word" style="top:440px;left:-470px;font-size:150px;color:var(--gravity)">forever.</div>
+  </section>
+  <section id="s5c" class="scene" style="visibility:hidden">
+    <video class="blurbed" src="./media/echo.webm" data-start="22.9" muted playsinline preload="auto"></video>
+    <div id="cam5c" class="cam">
+      <video class="hero" src="./media/echo.webm" data-start="22.9" muted playsinline preload="auto" style="left:420px"></video>
+      <svg id="ring5c" class="ring" style="--rc:rgba(192,132,252,.8);left:640px;top:274px" width="640" height="640" viewBox="0 0 640 640"><circle class="track" cx="320" cy="320" r="300" stroke-width="8"/><circle id="arc5c" class="arc" cx="320" cy="320" r="300" stroke="#c084fc" stroke-width="18" transform="rotate(-90 320 320)" style="--len:1885px"/></svg>
+    </div>
+    <div id="w5c" class="word" style="top:880px;font-size:120px;color:var(--echo)">who stay.</div>
+  </section>
+  <section id="s5d" class="scene" style="visibility:hidden">
+    <video class="blurbed" src="./media/orbit.webm" data-start="24.5" muted playsinline preload="auto"></video>
+    <div id="cam5d" class="cam">
+      <video class="hero" src="./media/orbit.webm" data-start="24.5" muted playsinline preload="auto" style="left:300px"></video>
+      <svg id="ring5d" class="ring" style="--rc:rgba(61,227,165,.8);left:490px;top:244px" width="700" height="700" viewBox="0 0 700 700"><circle class="track" cx="350" cy="350" r="330" stroke-width="8"/><circle id="arc5d" class="arc" cx="350" cy="350" r="330" stroke="#3de3a5" stroke-width="18" transform="rotate(-90 350 350)" style="--len:2073.5px"/></svg>
+    </div>
+    <div id="w5d" class="word" style="top:440px;left:430px;font-size:96px;color:var(--orbit)">owns itself.</div>
+  </section>
+
+  <!-- B6 CTA 804-930: the ring becomes the emblem -->
+  <section id="s6" class="scene" style="visibility:hidden">
+    <video class="cover" src="./media/observatory.webm" data-start="26.8" muted playsinline preload="auto" style="filter:brightness(.38) saturate(1.2) blur(6px)"></video>
+    <div id="glow6" class="flare" style="left:660px;top:120px;width:600px;height:600px;background:radial-gradient(closest-side, rgba(165,107,255,.45), rgba(131,231,255,.12) 55%, transparent 75%);"></div>
+    <div id="lock6" style="position:absolute;inset:0">
+      <img id="emb6" src="./media/emblem.png" style="position:absolute;left:810px;top:220px;width:300px;height:300px" alt="">
+      <div id="name6" class="word" style="top:560px;font-size:132px;letter-spacing:.02em;background:linear-gradient(135deg,#ffffff 0%,#dcd9f2 38%,#a56bff 72%,#83e7ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none">FATE</div>
+      <div id="tag6" class="word" style="top:742px;font-size:40px;color:rgba(242,238,255,.78);text-transform:none;font-family:'Space Grotesk';font-weight:400;letter-spacing:0">Chosen once. Enforced forever.</div>
+    </div>
+  </section>
+
+</div>
+
+<script src="./runtime/vendor/gsap.min.js"></script>
+<script src="./runtime/motion.js"></script>
+<script>
+const M = Motion.film({ fps: 30, duration: 31, width: 1920, height: 1080, clock: 'smooth' });
+const F = (s) => Math.round(s * 30);
+
+/* ── B1 HOOK 0-90 ── emblem decelerates in from oversize; ring light breathes; dive into the ring */
+M.enter('#emb1', { at: 0, frames: 18, ease: 'snapSettle', from: { scale: 2.2, blur: 12 } });
+M.kf('#glow1', 'opacity', [[0, 0], [10, 1, 'softLand'], [40, .7], [70, 1]]);
+M.drift('#emb1', { prop: 'rotation', from: 0, to: 4, start: 18, end: 72 });
+M.dive('#cam1', { at: 74, frames: 16, perStep: 1.32, origin: [960, 520] });
+
+/* ── B2 TURN 90-207 ── arrives still travelling out of the dive; "an economy." on the spoken words */
+M.cut(90, { hide: ['#s1'], show: ['#s2'], label: 'through the ring into the coin' });
+M.snap('#cam2', { at: 90, from: { scale: 2.6 }, to: { scale: 1 }, firstFrameShare: .55, tail: 22, origin: '960px 520px' });
+M.drift('#cam2', { prop: 'y', from: 0, to: -18, start: 112, end: 207 });
+M.words('#w2', { at: F(5.52), mech: 'rise', dist: 70, gaps: [6], frames: 12, ease: 'softLand', smear: true, accent: { color: '#4dffc3', frames: 9999, word: -1 }, words: [{}, { scale: 1.25, dist: 110 }] });
+
+/* ── B3 PROOF 207-262 ── the real picker, magnified; the cursor parks and presses Phoenix on "destiny" */
+M.cut(207, { hide: ['#s2'], show: ['#s3'], label: 'the real launch flow' });
+const PS = 1.75;
+M.camera('#cam3', [[207, { scale: 1.95, x: 0, y: 30 }], [228, { scale: PS, x: 0, y: 30 }, 'glide'], [236, { scale: PS, x: 0, y: 30 }],
+  [262, { scale: 3.3, x: (960 - 594) * 3.3, y: (540 - 470) * 3.3 }, 'gentleIn']], { origin: '960px 540px' });
+// screen position of the Phoenix card's art at PS: x = 960 + (594-960)*1.75 = 320, y = 540 + (436-540)*1.75 + 30 = 388
+M.cursor('#cursor', { keys: [[207, 2000, 1250, 3.2, -24], [215, 900, 700, 1.8, -10], [222, 340, 410, 1, 0]], ease: 'glide' });
+M.press('#cursor', '#hit', { at: F(7.6), cursorDepth: .82, targetDepth: 1, lag: 1, frames: 3, release: false });
+M.cut(F(7.6) + 1, { hide: ['#pickA'], show: ['#pickB'], label: 'Phoenix chosen' });
+M.hide('#cursor', 240);
+
+/* ── B3b 262-336 ── "It can never be changed": the real review card */
+M.cut(262, { hide: ['#s3'], show: ['#s3b'], label: 'sign once' });
+// card centre in layout px (1086, 342); keep it centred while the camera eases closer
+M.camera('#cam3b', [[262, { scale: 3.0, x: (960 - 1086) * 3.0, y: (540 - 342) * 3.0 }], [278, { scale: 2.55, x: (960 - 1086) * 2.55, y: (540 - 342) * 2.55 }, 'snapSettle'], [336, { scale: 2.68, x: (960 - 1086) * 2.68, y: (540 - 342) * 2.68 }, 'cruise']], { origin: '960px 540px' });
+
+/* ── B4 HERO 336-430 ── fees fill the ring in steps, a held breath, then it snaps shut on "spends" */
+M.cut(336, { hide: ['#s3b'], show: ['#s4'], label: 'the vault' });
+M.camera('#cam4', [[336, { scale: 1.12 }], [402, { scale: 1.0 }, 'glide'], [406, { scale: 1.07 }, 'crashIn'], [430, { scale: 1.11 }, 'cruise']], { origin: '960px 600px' });
+const steps = [[342, .09], [349, .2], [356, .31], [364, .44], [371, .55], [379, .64]];
+const pk = [[336, 0]];
+for (const [f, v] of steps) { pk.push([f, pk[pk.length - 1][1]]); pk.push([f, v]); }
+pk.push([396, .7], [402, .7], [406, 1, 'crashIn']);
+M.kf('#arc4', '--p', pk);
+steps.forEach(([f]) => M.mark(f, 'count', 'fee in'));
+M.mark(402, 'press', 'ring closes: destiny executes');
+M.kf('#flare4', 'opacity', [[336, 0], [402, 0], [405, 1, 'crashIn'], [426, .15, 'softLand']]);
+M.kf('#ring4', 'scale', [[336, .96], [402, 1], [405, 1.06, 'crashIn'], [418, 1.02, 'softLand']]);
+
+/* ── B4b 430-558 ── the proof row, read by the camera (pans left to right as it is spoken) */
+M.cut(430, { hide: ['#s4'], show: ['#s4b'], label: 'bought and burned' });
+const ROWY = 997;
+const at = (f, scale, cx, ease) => ease ? [f, { scale, x: (960 - cx) * scale, y: (540 - ROWY) * scale }, ease] : [f, { scale, x: (960 - cx) * scale, y: (540 - ROWY) * scale }];
+M.camera('#cam4b', [at(430, 6.2, 440), at(440, 5.2, 450, 'snapSettle'), at(462, 5.1, 470), at(470, 3.9, 640, 'whip'), at(500, 3.8, 700), at(508, 6.0, 640, 'whip'), at(532, 6.2, 650), at(538, 2.9, 760, 'whip'), at(558, 2.8, 770)], { origin: '960px 540px' });
+M.mark(470, 'whip', 'along the row'); M.mark(508, 'whip', '3.60M EMBER'); M.mark(538, 'whip', 'the whole row');
+
+/* ── B5 the four destinies 558-804 ── the ring closes on each line; one verb fragment each */
+function destinyShot(id, at, end, wordAt, closeAt) {
+  M.cut(at, { hide: [M._prev || '#s4b'], show: [id], label: id });
+  M._prev = id;
+  const cam = id.replace('#s', '#cam');
+  M.snap(cam, { at, from: { scale: 1.45 }, to: { scale: 1.04 }, firstFrameShare: .6, tail: 14, origin: '960px 600px' });
+  M.drift(id.replace('#s', '#ring'), { prop: 'rotation', from: -25, to: 10, start: at, end });
+  M.kf(id.replace('#s', '#arc'), '--p', [[at, .05], [closeAt, 1, 'softLand']]);
+  M.words(id.replace('#s', '#w'), { at: wordAt, mech: 'rise', dist: 80, gaps: [5], frames: 12, ease: 'softLand', smear: true });
+}
+destinyShot('#s5a', 558, 612, F(19.7), F(19.9));
+destinyShot('#s5b', 612, 687, F(22.25), F(21.6));
+destinyShot('#s5c', 687, 735, F(23.75), F(24.0));
+destinyShot('#s5d', 735, 804, F(25.93), F(26.1));
+// the Orbit ring contracts to the emblem's size and place: it becomes the logo's ring
+M.kf('#ring5d', 'x', [[784, 0], [804, 120, 'gentleIn']]);
+M.kf('#ring5d', 'y', [[784, 0], [804, -224, 'gentleIn']]);
+M.kf('#ring5d', 'scale', [[784, 1], [804, .44, 'gentleIn']]);
+
+/* ── B6 CTA 804-930 ── the emblem lands where the ring arrived; the name is complete before it is spoken */
+M.cut(804, { hide: ['#s5d'], show: ['#s6'], label: 'the ring is the logo' });
+M.enter('#emb6', { at: 804, frames: 16, ease: 'snapSettle', from: { scale: 2.6, blur: 10 } });
+M.enter('#name6', { at: 806, frames: 14, ease: 'snapSettle', from: { y: 40, scale: 1.4, blur: 8 } });
+M.kf('#glow6', 'opacity', [[804, 0], [812, 1, 'softLand'], [930, .8]]);
+M.words('#tag6', { at: F(27.95), mech: 'focus', gaps: [5, 4, 9, 5], frames: 10 });
+M.drift('#lock6', { prop: 'scale', from: 1, to: .93, start: 820, end: 930 });
+
+window.__ready = Motion.loaded().then(() => { if (/selftest/.test(location.search)) Motion.selfTest(M, { samples: 24 }); });
+</script>
+</body>
+</html>
