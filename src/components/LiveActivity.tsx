@@ -1,8 +1,9 @@
 "use client";
+import { Ago } from "@/components/Ago";
 import Link from "next/link";
 import { useState } from "react";
 import { useStream, type StreamEvent } from "@/lib/useStream";
-import { fmtSol, fmtTok, ago, destinyWord } from "@/lib/format";
+import { fmtSol, fmtTok, destinyWord } from "@/lib/format";
 
 /** Only verified, ledger-recorded events are shown: the feed is read from the events table. */
 export function describe(e: StreamEvent): { text: string; destiny?: string } | null {
@@ -43,7 +44,7 @@ export function LiveActivity({ initial, tokenId, compact }: { initial: StreamEve
           <li key={e.id} className="py-2.5 flex items-start gap-3 copy normal-case" data-destiny={d!.destiny}>
             <i className="mt-2 h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent)" }} />
             <span className="flex-1">{e.tokenId ? <Link className="link" href={`/coin/${e.tokenId}`}>{d!.text}</Link> : d!.text}</span>
-            <span className="text-ivory-3 num whitespace-nowrap">{ago(e.createdAt)}</span>
+            <span className="text-ivory-3 num whitespace-nowrap"><Ago t={e.createdAt} /></span>
           </li>
         ))}
       </ul>

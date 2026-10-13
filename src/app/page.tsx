@@ -138,9 +138,9 @@ export default async function Home() {
 
       {/* BOARD */}
       <section id="board" className="bg-obsidian pb-20 sm:pb-28">
-        <div className="mx-auto max-w-[1440px] px-5 sm:px-8 grid gap-8 lg:grid-cols-[1fr_24rem]">
-          <div>
-            <div className="flex items-end justify-between mb-8 reveal">
+        <div className="mx-auto max-w-[1440px] px-5 sm:px-8 grid gap-8 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-8 reveal">
               <h2 className="display text-[clamp(2rem,4.4vw,3.4rem)]">On the board <span className="sticker text-[clamp(1.2rem,2.2vw,1.8rem)] align-middle">live</span></h2>
               <Link href="/coins?tab=trending" className="btn btn-sm btn-ghost">Trending</Link>
             </div>
@@ -152,7 +152,7 @@ export default async function Home() {
                 <Link href="/launch" className="btn btn-primary mt-6">Launch a coin</Link>
               </div>
             ) : (
-              <div className="grid gap-5 sm:grid-cols-2">{trending.map((t, i) => <div key={t.id} className="reveal" style={{ transitionDelay: `${(i % 2) * 90}ms` }}><TokenCard t={t} /></div>)}</div>
+              <div className="grid gap-5 grid-cols-[minmax(0,1fr)] sm:grid-cols-2">{trending.map((t, i) => <div key={t.id} className="reveal" style={{ transitionDelay: `${(i % 2) * 90}ms` }}><TokenCard t={t} /></div>)}</div>
             )}
           </div>
           <div className="reveal"><LiveActivity initial={activity} /></div>

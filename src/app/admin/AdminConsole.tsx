@@ -1,7 +1,8 @@
 "use client";
+import { Ago } from "@/components/Ago";
 import { useCallback, useEffect, useState } from "react";
 import { Logo, Mark } from "@/components/Logo";
-import { fmtSol, fmtTok, ago } from "@/lib/format";
+import { fmtSol, fmtTok } from "@/lib/format";
 
 type Settings = Record<string, string | number | boolean>;
 interface Readiness { groups: { name: string; items: { label: string; ok: boolean; hint?: string }[]; done: number; total: number }[]; done: number; total: number; score: number; canEnableMainnet: boolean }
@@ -217,7 +218,7 @@ export function AdminConsole() {
               <h2 className="display-md text-[22px]">Failed executions</h2>
               {ops.failed.length === 0 ? <p className="text-sm text-dim mt-2">None.</p> : (
                 <table className="table mt-3"><thead><tr><th>Coin</th><th>Seq</th><th>Error</th><th>When</th></tr></thead>
-                  <tbody>{ops.failed.map((f) => <tr key={f.id}><td>{f.ticker}</td><td className="num">{String(f.seq)}</td><td className="text-phoenix">{f.error}</td><td className="text-dim">{ago(f.created_at)}</td></tr>)}</tbody></table>)}
+                  <tbody>{ops.failed.map((f) => <tr key={f.id}><td>{f.ticker}</td><td className="num">{String(f.seq)}</td><td className="text-phoenix">{f.error}</td><td className="text-dim"><Ago t={f.created_at} /></td></tr>)}</tbody></table>)}
             </div>
             <p className="label">Burned {fmtTok(ops.stats.burned)} · liquidity {fmtSol(ops.stats.liquidity, 2)} SOL · rewards {fmtSol(ops.stats.rewards, 2)} SOL · treasuries {fmtSol(ops.stats.treasury, 2)} SOL</p>
           </div>

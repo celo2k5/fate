@@ -1,4 +1,5 @@
 "use client";
+import { Ago, Countdown } from "@/components/Ago";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Character } from "./Character";
@@ -8,7 +9,7 @@ import { PriceChart } from "./PriceChart";
 import { LiveActivity } from "./LiveActivity";
 import { useStream, type StreamEvent } from "@/lib/useStream";
 import { useWallet } from "@/lib/wallet";
-import { fmtSol, fmtTok, fmtPrice, pct, ago, countdown, shortAddr, actionWord, bpsPct } from "@/lib/format";
+import { fmtSol, fmtTok, fmtPrice, pct, shortAddr, actionWord, bpsPct } from "@/lib/format";
 
 // Detail is whatever Protocol.detail() returns, serialised (bigint -> string).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,10 +118,10 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
                 <dt className="text-ivory-2">Next {actionWord[destiny]}</dt><dd>{fmtSol(cfg.execution_threshold, 2)} SOL</dd>
                 <dt className="text-ivory-2">Progress</dt><dd data-testid="progress">{pct(el.progress)}</dd>
                 <dt className="text-ivory-2">State</dt><dd data-testid="state">{stateLabel[st.state]}</dd>
-                {el.nextAt && <><dt className="text-ivory-2">{destiny === "ECHO" ? "Epoch ends" : "Cooldown ends"}</dt><dd>{countdown(el.nextAt)}</dd></>}
+                {el.nextAt && <><dt className="text-ivory-2">{destiny === "ECHO" ? "Epoch ends" : "Cooldown ends"}</dt><dd><Countdown t={el.nextAt} /></dd></>}
                 <dt className="text-ivory-2">Lifetime fees</dt><dd>{fmtSol(st.lifetime_fees, 4)} SOL</dd>
                 {destiny === "PHOENIX" && <><dt className="text-ivory-2">Total burned</dt><dd data-testid="burned">{fmtTok(st.total_burned)} {t.ticker}</dd>
-                  <dt className="text-ivory-2">Last buyback</dt><dd>{d.lastBuyback ? `${fmtSol(d.lastBuyback.amount_used, 3)} SOL · ${ago(d.lastBuyback.completed_at)}` : "none yet"}</dd></>}
+                  <dt className="text-ivory-2">Last buyback</dt><dd>{d.lastBuyback ? <>{fmtSol(d.lastBuyback.amount_used, 3)} SOL · <Ago t={d.lastBuyback.completed_at} /></> : "none yet"}</dd></>}
                 {destiny === "GRAVITY" && <><dt className="text-ivory-2">Liquidity added</dt><dd>{fmtSol(st.total_liquidity_added, 3)} SOL</dd>
                   <dt className="text-ivory-2">Locked position</dt><dd>{fmtSol(d.position.s, 3)} SOL + {fmtTok(d.position.t)} {t.ticker}{d.pool ? ` · ${fmtTok(d.position.lp)} LP` : " · escrow"}</dd></>}
                 {destiny === "ECHO" && <><dt className="text-ivory-2">Current epoch</dt><dd>{d.currentEpoch}</dd>
@@ -163,10 +164,10 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
               ) : <p className="mt-2 small text-ivory-2">Connect a wallet to see claimable rewards.</p>}
               {claimMsg && <p className="mt-2 small text-ivory-2" data-testid="claim-result">{claimMsg}</p>}
               <h3 className="mt-6 small text-ivory-2">Reward history</h3>
-              {d.epochs.length === 0 ? <p className="small text-ivory-3 mt-1">No epochs settled yet. Next distribution: {countdown(el.nextAt)}.</p> : (
+              {d.epochs.length === 0 ? <p className="small text-ivory-3 mt-1">No epochs settled yet. Next distribution: <Countdown t={el.nextAt} />.</p> : (
                 <table className="mt-2 w-full small num"><thead className="text-ivory-3 text-left"><tr><th className="font-normal py-1">Epoch</th><th className="font-normal">Funded</th><th className="font-normal">Eligible</th><th className="font-normal">Claimed</th><th className="font-normal">Settled</th></tr></thead>
                   <tbody>{(d.epochs as { id: string; epoch: string; funded: string; eligible_wallets: string; claimed: string; created_at: string }[]).map((e) => (
-                    <tr key={e.id} className="border-t border-line"><td className="py-1.5">{e.epoch}</td><td>{fmtSol(e.funded, 4)} SOL</td><td>{e.eligible_wallets}</td><td>{fmtSol(e.claimed, 4)} SOL</td><td>{ago(e.created_at)}</td></tr>))}</tbody></table>)}
+                    <tr key={e.id} className="border-t border-line"><td className="py-1.5">{e.epoch}</td><td>{fmtSol(e.funded, 4)} SOL</td><td>{e.eligible_wallets}</td><td>{fmtSol(e.claimed, 4)} SOL</td><td><Ago t={e.created_at} /></td></tr>))}</tbody></table>)}
             </section>
           )}
 
@@ -212,7 +213,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
                           destiny === "ECHO" ? `Epoch ${r.epoch}: ${fmtSol(r.funded, 4)} SOL to ${r.eligibleWallets} wallets` :
                           `Deployed ${fmtSol(e.amount_used, 4)} SOL: ${(r.acquisitions ?? []).map((a: { asset: string }) => a.asset).join(", ")}`}
                       </span>
-                      <span className="text-ivory-3 num">{ago(e.created_at)}</span>
+                      <span className="text-ivory-3 num"><Ago t={e.created_at} /></span>
                     </li>
                   );
                 })}
@@ -228,7 +229,7 @@ export function TokenView({ initial, initialActivity }: { initial: Detail; initi
                 <tbody>{(d.trades as { id: string; side: string; trader: string; sol_amount: string; token_amount: string; fee_lamports: string; is_protocol: string; created_at: string }[]).slice(0, 12).map((x) => (
                   <tr key={x.id} className="border-t border-line"><td className={`py-1.5 ${x.side === "BUY" ? "text-orbit" : "text-phoenix"}`}>{x.side.toLowerCase()}</td>
                     <td>{Number(x.is_protocol) ? <span style={{ color: "var(--accent)" }}>{d.meta.title} vault</span> : shortAddr(x.trader)}</td>
-                    <td>{fmtSol(x.sol_amount, 4)}</td><td>{fmtTok(x.token_amount)}</td><td>{fmtSol(x.fee_lamports, 5)}</td><td className="text-ivory-3">{ago(x.created_at)}</td></tr>))}</tbody></table>)}
+                    <td>{fmtSol(x.sol_amount, 4)}</td><td>{fmtTok(x.token_amount)}</td><td>{fmtSol(x.fee_lamports, 5)}</td><td className="text-ivory-3"><Ago t={x.created_at} /></td></tr>))}</tbody></table>)}
           </section>
 
           <section className="small text-ivory-2">
@@ -274,7 +275,7 @@ function AgentPanel({ agent }: { agent: any }) {
       <dl className="mt-4 grid grid-cols-[10rem_1fr] gap-y-1.5 small">
         <dt className="text-ivory-2">State</dt><dd className={tone}>{agent.state}{Number(agent.pendingTx) > 0 ? ` · ${agent.pendingTx} tx pending` : ""}</dd>
         {agent.lastError && <><dt className="text-ivory-2">Last error</dt><dd className="text-phoenix break-words">{agent.lastError}</dd></>}
-        {agent.nextRetryAt && <><dt className="text-ivory-2">Next retry</dt><dd>{countdown(Number(agent.nextRetryAt))}</dd></>}
+        {agent.nextRetryAt && <><dt className="text-ivory-2">Next retry</dt><dd><Countdown t={Number(agent.nextRetryAt)} /></dd></>}
         <dt className="text-ivory-2">Mint</dt><dd className="mono truncate"><a className="link" href={EXPLORER("address", agent.mint, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(agent.mint, 6)}</a></dd>
         <dt className="text-ivory-2">Vault authority</dt><dd className="mono truncate"><a className="link" href={EXPLORER("address", agent.vaultAuthority, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(agent.vaultAuthority, 6)}</a></dd>
       </dl>
@@ -287,7 +288,7 @@ function AgentPanel({ agent }: { agent: any }) {
                 <span className={t.status === "CONFIRMED" ? "text-mint" : t.status === "FAILED" || t.status === "EXPIRED" ? "text-phoenix" : "text-ivory-2"}>{t.status.toLowerCase()}</span>
                 <span>{PURPOSE[t.purpose] ?? t.purpose}</span>
                 {t.signature && <a className="link mono" href={EXPLORER("tx", t.signature, agent.chain)} target="_blank" rel="noreferrer">{shortAddr(t.signature, 6)}</a>}
-                <span className="text-ivory-3 ml-auto">{ago(Number(t.updated_at))}</span>
+                <span className="text-ivory-3 ml-auto"><Ago t={Number(t.updated_at)} /></span>
                 {t.error && <span className="basis-full text-phoenix break-words">{t.error}</span>}
               </li>
             ))}
