@@ -28,20 +28,20 @@ export function TokenCard({ t, featured = false }: { t: TokenListItem; featured?
             {t.image ? <img src={t.image} alt="" className="h-full w-full object-cover" /> : t.ticker.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2"><span className={`display-md truncate ${featured ? "text-[26px]" : "text-[19px]"}`}>{t.name}</span><span className="text-sm text-dim">{t.ticker}</span></div>
-            <div className="text-xs text-faint mt-0.5">{destinyWord[t.destiny]} · {STATE[t.state] ?? t.state} · {t.status === "AMM" ? "AMM" : `curve ${pct(t.graduationProgress)}`}</div>
+            <div className="flex items-baseline gap-2"><span className={`display truncate ${featured ? "text-[30px]" : "text-[24px]"}`}>{t.name}</span><span className="mono text-dim">{t.ticker}</span></div>
+            <div className="eyebrow mt-0.5">{destinyWord[t.destiny]} · {STATE[t.state] ?? t.state} · {t.status === "AMM" ? "AMM" : `curve ${pct(t.graduationProgress)}`}</div>
           </div>
-          <span className="chip ml-auto">{destinyWord[t.destiny]}</span>
+          <span className="voice text-[24px] ml-auto">{destinyWord[t.destiny]}</span>
         </div>
-        <dl className="mt-5 grid grid-cols-3 gap-3 text-sm num">
-          <div><dt className="text-faint text-xs">Market cap</dt><dd className="mt-0.5">{fmtSol(t.marketCap, 1)} SOL</dd></div>
-          <div><dt className="text-faint text-xs">Volume 24h</dt><dd className="mt-0.5">{fmtSol(t.vol, 1)} SOL</dd></div>
-          <div><dt className="text-faint text-xs">Holders</dt><dd className="mt-0.5">{String(t.holders)}</dd></div>
+        <dl className="mt-5 grid grid-cols-3 gap-3 mono num">
+          <div><dt className="eyebrow">Market cap</dt><dd className="mt-0.5">{fmtSol(t.marketCap, 1)} SOL</dd></div>
+          <div><dt className="eyebrow">Volume 24h</dt><dd className="mt-0.5">{fmtSol(t.vol, 1)} SOL</dd></div>
+          <div><dt className="eyebrow">Holders</dt><dd className="mt-0.5">{String(t.holders)}</dd></div>
         </dl>
         <div className="mt-5">
-          <div className="flex justify-between text-xs"><span className="text-dim">Vault {fmtSol(t.vault, 2)} / {fmtSol(t.execution_threshold, 2)} SOL</span><span className="num" style={{ color: "var(--accent)" }}>{pct(t.vaultProgress)}</span></div>
+          <div className="flex justify-between mono"><span className="text-dim">Vault {fmtSol(t.vault, 2)} / {fmtSol(t.execution_threshold, 2)} SOL</span><span className="num" style={{ color: "var(--accent)" }}>{pct(t.vaultProgress)}</span></div>
           <div className="meter mt-1.5"><i style={{ width: pct(t.vaultProgress) }} /></div>
-          <div className="mt-1.5 text-xs text-faint">Next {actionWord[t.destiny]}: {t.vaultProgress >= 1 ? (t.nextAt ? countdown(t.nextAt) : "eligible now") : `${fmtSol(away, 2)} SOL away`}</div>
+          <div className="mt-1.5 eyebrow">Next {actionWord[t.destiny]}: {t.vaultProgress >= 1 ? (t.nextAt ? countdown(t.nextAt) : "eligible now") : `${fmtSol(away, 2)} SOL away`}</div>
         </div>
       </div>
     </Link>

@@ -17,7 +17,7 @@ export function Preloader() {
   if (!show) return null;
   return (
     <div aria-hidden="true" className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-obsidian transition-opacity duration-700" style={{ opacity: done ? 0 : 1, pointerEvents: done ? "none" : "auto" }}>
-      <Sigil size={72} className="text-gold" draw />
+      <Sigil size={72} className="text-mint" draw />
       <div className="mt-6 overflow-hidden">
         <p className="voice text-[28px] rise rise-2">Every coin has a destiny.</p>
       </div>

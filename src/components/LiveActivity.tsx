@@ -32,7 +32,7 @@ export function LiveActivity({ initial, tokenId, compact }: { initial: StreamEve
   return (
     <div className="card px-5 py-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="display-md text-[18px]">Protocol activity</h3>
+        <h3 className="voice text-[28px]">Protocol activity</h3>
         <span className="small text-ivory-3 flex items-center gap-1.5 ml-3">
           <i className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-orbit" : "bg-ivory-3"}`} /> {connected ? "live" : "reconnecting"}
         </span>
@@ -40,7 +40,7 @@ export function LiveActivity({ initial, tokenId, compact }: { initial: StreamEve
       {rows.length === 0 && <p className="small text-ivory-3 py-4">Nothing verified yet. Activity appears here as trades, executions and graduations are recorded.</p>}
       <ul className="divide-y divide-line">
         {rows.map(({ e, d }) => (
-          <li key={e.id} className="py-2.5 flex items-start gap-3 small" data-destiny={d!.destiny}>
+          <li key={e.id} className="py-2.5 flex items-start gap-3 copy normal-case" data-destiny={d!.destiny}>
             <i className="mt-2 h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent)" }} />
             <span className="flex-1">{e.tokenId ? <Link className="link" href={`/coin/${e.tokenId}`}>{d!.text}</Link> : d!.text}</span>
             <span className="text-ivory-3 num whitespace-nowrap">{ago(e.createdAt)}</span>
